@@ -8,8 +8,6 @@ use ratatui::{
     Frame,
 };
 
-use krab_backend::user::{ReadOnlyRecords, RecordOperationConfig, User};
-
 use crate::{
     components::scrollable_view::ScrollView,
     from,
@@ -22,6 +20,7 @@ use crate::{
     views::{login::Login, View},
     Application, ViewState, COLOR_BLACK, COLOR_ORANGE, COLOR_WHITE,
 };
+use krab_backend::user::{ReadOnlyRecords, RecordOperationConfig, User};
 
 const DOMAIN_PASSWORD_LIST_ITEM_HEIGHT: u16 = 4;
 const RIGHT_MARGIN: u16 = 6;
@@ -475,6 +474,14 @@ impl View for Home {
         }
 
         app
+    }
+
+    fn needs_header(&self) -> bool {
+        false
+    }
+
+    fn min_area(&self) -> (u16, u16) {
+        (30, 30)
     }
 
     fn handle_insert_record_popup(

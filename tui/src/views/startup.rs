@@ -170,4 +170,8 @@ impl View for StartUp {
 
         app
     }
+
+    fn min_area(&self) -> (u16, u16) {
+        (3 * ButtonConfig::height(), InputConfig::width())
+    }
 }
