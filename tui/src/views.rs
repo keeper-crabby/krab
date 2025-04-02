@@ -31,6 +31,8 @@ pub enum ViewState {
 /// # Methods
 /// * `render` - Renders the state
 /// * `handle_key` - Handles a key event
+/// * `needs_header` - Returns whether the state needs a header
+/// * `min_area` - Returns the minimum area of the state
 /// * `handle_insert_record_popup` - Handles an insert record popup
 /// * `handle_insert_master_popup` - Handles an insert master popup
 pub trait View {
@@ -51,6 +53,20 @@ pub trait View {
     /// # Returns
     /// The updated application
     fn handle_key(&mut self, key: &KeyEvent, app: &Application) -> Application;
+
+    /// Returns whether the state needs a header
+    ///
+    /// # Returns
+    /// Whether the state needs a header
+    fn needs_header(&self) -> bool {
+        true
+    }
+
+    /// Returns the minimum area of the state
+    ///
+    /// # Returns
+    /// The minimum area of the state
+    fn min_area(&self) -> (u16, u16);
 
     /// Handles an insert record popup
     ///

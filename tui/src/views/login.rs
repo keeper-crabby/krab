@@ -310,4 +310,10 @@ impl View for Login {
 
         app
     }
+
+    fn min_area(&self) -> (u16, u16) {
+        let height = 2 * InputConfig::height() + ButtonConfig::height();
+        let width = InputConfig::width();
+        (width, height)
+    }
 }

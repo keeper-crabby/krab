@@ -1,5 +1,6 @@
 use std::{cell::RefCell, error::Error, io, path::PathBuf};
 
+use components::window_too_small::{WindowTooSmall, WindowTooSmallConfig};
 use ratatui::{
     backend::{Backend, CrosstermBackend},
     crossterm::{
@@ -8,8 +9,7 @@ use ratatui::{
         terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
     },
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
-    widgets::{Block, Borders},
+    style::Color,
     Frame, Terminal,
 };
 
@@ -114,30 +114,76 @@ pub fn from(hex: &str) -> Result<Color, String> {
     Ok(Color::Rgb(try_r.unwrap(), try_g.unwrap(), try_b.unwrap()))
 }
 
+/// Checks if the state is out of bounds
+///
+/// # Arguments
+/// * `state` - The view state
+/// * `rect` - The rectangle
+///
+/// # Returns
+/// `true` if the state is out of bounds, otherwise `false`
+fn check_if_out_of_bound(state: &ViewState, rect: Rect) -> bool {
+    match state {
+        ViewState::Login(s) => {
+            if (s.min_area().0 > rect.width) || (s.min_area().1 > rect.height) {
+                return true;
+            }
+        }
+        ViewState::StartUp(s) => {
+            if (s.min_area().0 > rect.width) || (s.min_area().1 > rect.height) {
+                return true;
+            }
+        }
+        ViewState::Register(s) => {
+            if (s.min_area().0 > rect.width) || (s.min_area().1 > rect.height) {
+                return true;
+            }
+        }
+        ViewState::Home(s) => {
+            if (s.min_area().0 > rect.width) || (s.min_area().1 > rect.height) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Renders the out of bounds message
+///
+/// # Arguments
+/// * `f` - The mutable reference to the `Frame`
+/// * `width` - The width
+/// * `height` - The height
+fn render_out_of_bounds(f: &mut Frame, width: u16, height: u16) {
+    let config = WindowTooSmallConfig::new(width, height);
+    let rect = f.area();
+    WindowTooSmall::render(f.buffer_mut(), rect, &config);
+}
+
 /// Renders the UI
 ///
 /// # Arguments
 /// * `f` - The mutable reference to the `Frame`
 /// * `app` - The `Application` instance
 fn ui(f: &mut Frame, app: &Application) {
-    let wrapper = Rect::new(0, 0, f.area().width, f.area().height);
-    f.render_widget(
-        Block::default()
-            .borders(Borders::ALL)
-            .title(" ".to_string() + &app.immutable_app_state.name + " ")
-            .style(Style::default().fg(from(COLOR_ORANGE).unwrap_or(Color::Yellow))),
-        wrapper,
-    );
-    let rect = centered_absolute_rect(wrapper, f.area().width - 6, f.area().height - 4);
+    let rect = f.area();
+    if check_if_out_of_bound(&app.state, rect) {
+        render_out_of_bounds(f, rect.width, rect.height);
+        return;
+    }
     match &app.state {
-        ViewState::Login(s) => s.render(f, app, rect),
+        ViewState::Login(s) => {
+            s.render(f, app, rect);
+        }
         ViewState::StartUp(s) => {
             s.render(f, app, rect);
         }
         ViewState::Register(s) => {
             s.render(f, app, rect);
         }
-        ViewState::Home(s) => s.render(f, app, rect),
+        ViewState::Home(s) => {
+            s.render(f, app, rect);
+        }
     }
     for popup in &app.mutable_app_state.popups {
         popup.render(f, app, popup.wrapper(rect));
@@ -164,11 +210,13 @@ fn run_app<B: Backend>(
             break;
         }
 
+        let rect = terminal.get_frame().area();
+        let out_of_bounds = check_if_out_of_bound(&app.state, rect);
         let _ = terminal.draw(|f| ui(f, &app));
         drop(app);
 
         if let Event::Key(key) = event::read()? {
-            if key.kind == event::KeyEventKind::Release {
+            if key.kind == event::KeyEventKind::Release || out_of_bounds {
                 continue;
             }
             let app = application.borrow();
