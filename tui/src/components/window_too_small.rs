@@ -49,7 +49,7 @@ impl WindowTooSmall {
     /// * `config` - The configuration of the window too small
     pub fn render(buffer: &mut Buffer, rect: Rect, config: &WindowTooSmallConfig) {
         let text = format!(
-            "The window is too small. The minimum size is {}x{}.",
+            "The window is too small. The minimum size is {}x{}",
             config.min_width, config.min_height
         );
         let text = Line::from(text);

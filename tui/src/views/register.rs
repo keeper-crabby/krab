@@ -389,6 +389,6 @@ impl View for Register {
     fn min_area(&self) -> (u16, u16) {
         let height = 3 * InputConfig::height() + ButtonConfig::height();
         let width = InputConfig::width();
-        (width, height)
+        (width * 3, height * 3)
     }
 }

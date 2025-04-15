@@ -122,30 +122,30 @@ pub fn from(hex: &str) -> Result<Color, String> {
 ///
 /// # Returns
 /// `true` if the state is out of bounds, otherwise `false`
-fn check_if_out_of_bound(state: &ViewState, rect: Rect) -> bool {
+fn check_if_out_of_bound(state: &ViewState, rect: Rect) -> Option<(u16, u16)> {
     match state {
         ViewState::Login(s) => {
             if (s.min_area().0 > rect.width) || (s.min_area().1 > rect.height) {
-                return true;
+                return Some((s.min_area().0, s.min_area().1));
             }
         }
         ViewState::StartUp(s) => {
             if (s.min_area().0 > rect.width) || (s.min_area().1 > rect.height) {
-                return true;
+                return Some((s.min_area().0, s.min_area().1));
             }
         }
         ViewState::Register(s) => {
             if (s.min_area().0 > rect.width) || (s.min_area().1 > rect.height) {
-                return true;
+                return Some((s.min_area().0, s.min_area().1));
             }
         }
         ViewState::Home(s) => {
             if (s.min_area().0 > rect.width) || (s.min_area().1 > rect.height) {
-                return true;
+                return Some((s.min_area().0, s.min_area().1));
             }
         }
     }
-    false
+    None
 }
 
 /// Renders the out of bounds message
@@ -167,8 +167,8 @@ fn render_out_of_bounds(f: &mut Frame, width: u16, height: u16) {
 /// * `app` - The `Application` instance
 fn ui(f: &mut Frame, app: &Application) {
     let rect = f.area();
-    if check_if_out_of_bound(&app.state, rect) {
-        render_out_of_bounds(f, rect.width, rect.height);
+    if let Some(bounds) = check_if_out_of_bound(&app.state, rect) {
+        render_out_of_bounds(f, bounds.0, bounds.1);
         return;
     }
     match &app.state {
@@ -216,7 +216,7 @@ fn run_app<B: Backend>(
         drop(app);
 
         if let Event::Key(key) = event::read()? {
-            if key.kind == event::KeyEventKind::Release || out_of_bounds {
+            if key.kind == event::KeyEventKind::Release || out_of_bounds.is_some() {
                 continue;
             }
             let app = application.borrow();

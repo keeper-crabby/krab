@@ -481,7 +481,7 @@ impl View for Home {
     }
 
     fn min_area(&self) -> (u16, u16) {
-        (30, 30)
+        (40, 40)
     }
 
     fn handle_insert_record_popup(
