@@ -76,6 +76,7 @@ enum RegisterState {
 /// * `password` - The password
 /// * `path` - The path
 /// * `cursors` - The cursors
+/// * `input_offsets` - The input offsets
 ///
 /// # Methods
 /// * `new` - Creates a new `Register`
@@ -94,6 +95,7 @@ pub struct Register {
     password: String,
     path: PathBuf,
     cursors: HashMap<RegisterInput, u16>,
+    input_offsets: HashMap<RegisterInput, u16>,
 }
 
 impl Register {
@@ -106,9 +108,13 @@ impl Register {
     /// A new `Register`
     pub fn new(path: &PathBuf) -> Self {
         let mut cursors = HashMap::new();
+        let mut input_offsets = HashMap::new();
         cursors.insert(RegisterInput::Username, 0);
         cursors.insert(RegisterInput::MasterPassword, 0);
         cursors.insert(RegisterInput::ConfirmMasterPassword, 0);
+        input_offsets.insert(RegisterInput::Username, 0);
+        input_offsets.insert(RegisterInput::MasterPassword, 0);
+        input_offsets.insert(RegisterInput::ConfirmMasterPassword, 0);
         Register {
             username: String::new(),
             master_password: String::new(),
@@ -118,6 +124,7 @@ impl Register {
             password: String::new(),
             path: path.clone(),
             cursors,
+            input_offsets,
         }
     }
 
@@ -140,6 +147,10 @@ impl Register {
                 } else {
                     None
                 },
+                self.input_offsets
+                    .get(&RegisterInput::Username)
+                    .unwrap()
+                    .clone(),
             ),
             RegisterInput::MasterPassword => InputConfig::new(
                 self.state == RegisterState::MasterPassword,
@@ -156,6 +167,10 @@ impl Register {
                 } else {
                     None
                 },
+                self.input_offsets
+                    .get(&RegisterInput::MasterPassword)
+                    .unwrap()
+                    .clone(),
             ),
             RegisterInput::ConfirmMasterPassword => InputConfig::new(
                 self.state == RegisterState::ConfirmMasterPassword,
@@ -172,6 +187,10 @@ impl Register {
                 } else {
                     None
                 },
+                self.input_offsets
+                    .get(&RegisterInput::ConfirmMasterPassword)
+                    .unwrap()
+                    .clone(),
             ),
         }
     }
@@ -244,11 +263,13 @@ impl View for Register {
                 }
                 _ => {
                     let config = self.generate_input_config(RegisterInput::Username);
-                    let (value, cursor_position) =
+                    let (value, cursor_position, input_offset) =
                         Input::handle_key(key, &config, self.username.clone());
                     self.username = value;
                     self.cursors
                         .insert(RegisterInput::Username, cursor_position);
+                    self.input_offsets
+                        .insert(RegisterInput::Username, input_offset);
                 }
             },
             RegisterState::MasterPassword => match key.code {
@@ -260,11 +281,13 @@ impl View for Register {
                 }
                 _ => {
                     let config = self.generate_input_config(RegisterInput::MasterPassword);
-                    let (value, cursor_position) =
+                    let (value, cursor_position, input_offset) =
                         Input::handle_key(key, &config, self.master_password.clone());
                     self.master_password = value;
                     self.cursors
                         .insert(RegisterInput::MasterPassword, cursor_position);
+                    self.input_offsets
+                        .insert(RegisterInput::MasterPassword, input_offset);
                 }
             },
             RegisterState::ConfirmMasterPassword => match key.code {
@@ -276,11 +299,13 @@ impl View for Register {
                 }
                 _ => {
                     let config = self.generate_input_config(RegisterInput::ConfirmMasterPassword);
-                    let (value, cursor_position) =
+                    let (value, cursor_position, input_offset) =
                         Input::handle_key(key, &config, self.confirm_master_password.clone());
                     self.confirm_master_password = value;
                     self.cursors
                         .insert(RegisterInput::ConfirmMasterPassword, cursor_position);
+                    self.input_offsets
+                        .insert(RegisterInput::ConfirmMasterPassword, input_offset);
                 }
             },
             RegisterState::Quit => match key.code {

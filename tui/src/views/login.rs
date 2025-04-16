@@ -72,6 +72,7 @@ enum LoginState {
 /// * `state` - The state
 /// * `path` - The path
 /// * `cursors` - The cursors
+/// * `input_offsets` - The input offsets
 ///
 /// # Methods
 /// * `new` - Creates a new `Login`
@@ -88,6 +89,7 @@ pub struct Login {
     state: LoginState,
     path: PathBuf,
     cursors: HashMap<LoginInput, u16>,
+    input_offsets: HashMap<LoginInput, u16>,
 }
 
 impl Login {
@@ -100,14 +102,18 @@ impl Login {
     /// A new `Login` view
     pub fn new(path: &PathBuf) -> Self {
         let mut cursors = HashMap::new();
+        let mut input_offsets = HashMap::new();
         cursors.insert(LoginInput::Username, 0);
         cursors.insert(LoginInput::MasterPassword, 0);
+        input_offsets.insert(LoginInput::Username, 0);
+        input_offsets.insert(LoginInput::MasterPassword, 0);
         Login {
             username: String::new(),
             master_password: String::new(),
             state: LoginState::Username,
             path: path.clone(),
             cursors,
+            input_offsets,
         }
     }
 
@@ -149,6 +155,10 @@ impl Login {
                 } else {
                     None
                 },
+                self.input_offsets
+                    .get(&LoginInput::Username)
+                    .unwrap()
+                    .clone(),
             ),
             LoginInput::MasterPassword => InputConfig::new(
                 self.state == LoginState::MasterPassword,
@@ -165,6 +175,10 @@ impl Login {
                 } else {
                     None
                 },
+                self.input_offsets
+                    .get(&LoginInput::MasterPassword)
+                    .unwrap()
+                    .clone(),
             ),
         }
     }
@@ -233,10 +247,12 @@ impl View for Login {
                 }
                 _ => {
                     let config = self.generate_input_config(LoginInput::Username);
-                    let (value, cursor_position) =
+                    let (value, cursor_position, input_offset) =
                         Input::handle_key(key, &config, self.username.clone());
                     self.username = value;
                     self.cursors.insert(LoginInput::Username, cursor_position);
+                    self.input_offsets
+                        .insert(LoginInput::Username, input_offset);
                 }
             },
             LoginState::MasterPassword => match key.code {
@@ -248,11 +264,13 @@ impl View for Login {
                 }
                 _ => {
                     let config = self.generate_input_config(LoginInput::MasterPassword);
-                    let (value, cursor_position) =
+                    let (value, cursor_position, input_offset) =
                         Input::handle_key(key, &config, self.master_password.clone());
                     self.master_password = value;
                     self.cursors
                         .insert(LoginInput::MasterPassword, cursor_position);
+                    self.input_offsets
+                        .insert(LoginInput::MasterPassword, input_offset);
                 }
             },
             LoginState::Quit => match key.code {
