@@ -9,6 +9,7 @@ pub mod exit;
 pub mod insert_domain_password;
 pub mod insert_master;
 pub mod message;
+pub mod insert_password;
 
 /// Represents the type of a popup
 ///
@@ -17,11 +18,13 @@ pub mod message;
 /// * `InsertDomainPassword` - The insert domain password popup
 /// * `Message` - The message popup
 /// * `InsertMaster` - The insert master password popup
+/// * `InsertPassword` - The insert password popup
 pub enum PopupType {
     Exit,
     InsertDomainPassword,
     Message,
     InsertMaster,
+    InsertPassword,
 }
 
 /// Represents a popup
@@ -83,8 +86,9 @@ pub fn min_area() -> (u16, u16) {
     let (idm_width, idm_height) = insert_domain_password::InsertDomainPassword::min_area();
     let (e_width, e_height) = exit::Exit::min_area();
     let (m_width, m_height) = message::MessagePopup::min_area();
+    let (ip_width, ip_height) = insert_password::InsertPassword::min_area();
     (
-        im_width.max(idm_width).max(e_width).max(m_width),
-        im_height.max(idm_height).max(e_height).max(m_height),
+        im_width.max(idm_width).max(e_width).max(m_width).max(ip_width),
+        im_height.max(idm_height).max(e_height).max(m_height).max(ip_height),
     )
 }

@@ -252,6 +252,12 @@ fn run_app<B: Backend>(
                             }
                             _ => {}
                         },
+                        PopupType::InsertPassword => match &mut app.state {
+                            ViewState::Home(s) => {
+                                new_app = s.handle_insert_password_popup(new_app, last_state);
+                            }
+                            _ => {}
+                        },
                         _ => {}
                     }
 

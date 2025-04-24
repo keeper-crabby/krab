@@ -14,6 +14,7 @@ use crate::{
     popups::{
         insert_domain_password::{InsertDomainPassword, InsertDomainPasswordExitState},
         insert_master::{InsertMaster, InsertMasterExitState},
+        insert_password::{InsertPassword, InsertPasswordExitState},
         message::MessagePopup,
         Popup,
     },
@@ -460,6 +461,14 @@ impl View for Home {
                 .push(Box::new(InsertMaster::new()));
             self.operation = Some(Operation::Remove);
         }
+        if key.code == KeyCode::Char('e') {
+            app.mutable_app_state
+                .popups
+                .push(Box::new(InsertPassword::new(
+                    self.secrets.secrets[self.secrets.selected_secret].0.clone(),
+                )));
+            self.operation = Some(Operation::Modify);
+        }
         if key.code == KeyCode::Char('c') {
             let current_secret = self
                 .secrets
@@ -645,8 +654,95 @@ impl View for Home {
                 app.state = ViewState::Home(self.clone());
                 app
             }
-            Some(Operation::Modify) => app,
+            Some(Operation::Modify) => {
+                let current_secret = self
+                    .secrets
+                    .secrets
+                    .get(self.secrets.selected_secret)
+                    .unwrap();
+
+                let config = RecordOperationConfig::new(
+                    &self.user.username(),
+                    &master_password,
+                    &current_secret.0,
+                    &self.new_secret.clone().unwrap().password,
+                    &app.immutable_app_state.db_path,
+                );
+
+                let res = self.user.modify_record(config);
+
+                if res.is_err() {
+                    let mut app = app.clone();
+                    app.mutable_app_state
+                        .popups
+                        .push(Box::new(MessagePopup::new(
+                            "Cannot modify record".to_string(),
+                        )));
+                    return app;
+                }
+
+                self.secrets = Secrets {
+                    secrets: res
+                        .unwrap()
+                        .records()
+                        .iter()
+                        .map(|x| (x.0.clone(), x.1.clone()))
+                        .collect(),
+                    selected_secret: self.secrets.selected_secret,
+                    shown_secrets: self.secrets.shown_secrets.clone(),
+                };
+
+                let mut app = app.clone();
+                app.state = ViewState::Home(self.clone());
+                app
+            }
         }
+    }
+
+    fn handle_insert_password_popup(
+            &mut self,
+            app: Application,
+            popup: Box<dyn Popup>,
+        ) -> Application {
+            let password: String;
+            let insert_password = popup.downcast::<InsertPassword>();
+    
+            match insert_password {
+                Ok(insert_password) => {
+                    if insert_password.exit_state() == Some(InsertPasswordExitState::Quit) {
+                        return app;
+                    }
+                    password = insert_password.password();
+                }
+                Err(_) => {
+                    unreachable!();
+                }
+            }
+    
+            if password.is_empty() {
+                let mut app = app.clone();
+                app.mutable_app_state
+                    .popups
+                    .push(Box::new(MessagePopup::new(
+                        "Password cannot be empty".to_string(),
+                    )));
+                return app;
+            }
+    
+            self.new_secret = Some(NewSecret {
+                domain: "".to_string(),
+                password: password.clone(),
+            });
+    
+            let mut app = app.clone();
+    
+            app.state = ViewState::Home(self.clone());
+    
+            app.mutable_app_state
+                .popups
+                .push(Box::new(InsertMaster::new()));
+    
+            app
     }
 }
 

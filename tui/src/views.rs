@@ -105,4 +105,20 @@ pub trait View {
     ) -> Application {
         unreachable!("This view does not handle insert master popups");
     }
+
+    /// Returns the type of the view
+    /// 
+    /// # Arguments
+    /// * `app` - The application
+    /// * `popup` - The insert password popup
+    /// 
+    /// # Returns
+    /// The updated application
+    fn handle_insert_password_popup(
+        &mut self,
+        _app: Application,
+        _popup: Box<dyn Popup>,
+    ) -> Application {
+        unreachable!("This view does not handle insert password popups");
+    }
 }
