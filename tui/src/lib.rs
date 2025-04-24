@@ -123,6 +123,10 @@ pub fn from(hex: &str) -> Result<Color, String> {
 /// # Returns
 /// `true` if the state is out of bounds, otherwise `false`
 fn check_if_out_of_bound(state: &ViewState, rect: Rect) -> Option<(u16, u16)> {
+    let (popups_min_width, popups_min_height) = popups::min_area();
+    if (popups_min_width > rect.width) || (popups_min_height > rect.height) {
+        return Some((popups_min_width, popups_min_height));
+    }
     match state {
         ViewState::Login(s) => {
             if (s.min_area().0 > rect.width) || (s.min_area().1 > rect.height) {

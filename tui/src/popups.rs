@@ -77,3 +77,14 @@ pub trait Popup: DynClone + Downcast {
 dyn_clone::clone_trait_object!(Popup);
 
 impl_downcast!(Popup);
+
+pub fn min_area() -> (u16, u16) {
+    let (im_width, im_height) = insert_master::InsertMaster::min_area();
+    let (idm_width, idm_height) = insert_domain_password::InsertDomainPassword::min_area();
+    let (e_width, e_height) = exit::Exit::min_area();
+    let (m_width, m_height) = message::MessagePopup::min_area();
+    (
+        im_width.max(idm_width).max(e_width).max(m_width),
+        im_height.max(idm_height).max(e_height).max(m_height),
+    )
+}

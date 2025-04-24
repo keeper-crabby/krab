@@ -81,6 +81,9 @@ pub enum InsertDomainPasswordExitState {
 /// * `exit_state` - Returns the exit state of the popup
 /// * `domain` - Returns the domain of the popup
 /// * `password` - Returns the password of the popup
+/// * `min_area` - Returns the minimum area of the popup
+/// * `generate_input_config` - Generates the input config for the popup
+/// * `generate_button_config` - Generates the button config for the popup
 ///
 /// # Implements
 /// * `Popup` - The popup trait
@@ -139,7 +142,24 @@ impl InsertDomainPassword {
     pub fn password(&self) -> String {
         self.password.clone()
     }
+    
+    /// Returns the minimum area of the popup
+    /// 
+    /// # Returns
+    /// A tuple representing the minimum area of the popup
+    pub fn min_area() -> (u16, u16) {
+        let height = 2 * InputConfig::height() + ButtonConfig::height();
+        let width = InputConfig::width();
+        (width, height)
+    }
 
+    /// Generates the input config for the popup
+    /// 
+    /// # Arguments
+    /// * `input` - The input to generate the config for
+    /// 
+    /// # Returns
+    /// An `InputConfig` representing the input config for the popup
     fn generate_input_config(&self, input: DomainPasswordInput) -> InputConfig {
         match input {
             DomainPasswordInput::Domain => InputConfig::new(
@@ -185,6 +205,13 @@ impl InsertDomainPassword {
         }
     }
 
+    /// Generates the button config for the popup
+    /// 
+    /// # Arguments
+    /// * `input` - The input to generate the config for
+    /// 
+    /// # Returns
+    /// A `ButtonConfig` representing the button config for the popup
     fn generate_button_config(&self, input: DomainPasswordButton) -> ButtonConfig {
         match input {
             DomainPasswordButton::Confirm => ButtonConfig::new(

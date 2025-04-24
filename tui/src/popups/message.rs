@@ -19,6 +19,7 @@ use crate::{
 ///
 /// # Methods
 /// * `new` - Creates a new `MessagePopup`
+/// * `min_area` - Returns the minimum area of the popup
 ///
 /// # Implements
 /// * `Popup` - The popup trait
@@ -37,6 +38,14 @@ impl MessagePopup {
     /// A new `MessagePopup`
     pub fn new(message: String) -> Self {
         MessagePopup { message }
+    }
+
+    /// Returns the minimum area of the popup
+    /// 
+    /// # Returns
+    /// The minimum area of the popup
+    pub fn min_area() -> (u16, u16) {
+        (30, 10)
     }
 }
 

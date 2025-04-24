@@ -16,6 +16,7 @@ use crate::{
 ///
 /// # Methods
 /// * `new` - Creates a new `Exit`
+/// * `min_area` - Returns the minimum area of the popup
 ///
 /// # Implements
 /// * `Popup` - The popup trait
@@ -29,6 +30,14 @@ impl Exit {
     /// A new `Exit`
     pub fn new() -> Self {
         Exit {}
+    }
+
+    /// Returns the minimum area of the popup
+    /// 
+    /// # Returns
+    /// The minimum area of the popup
+    pub fn min_area() -> (u16, u16) {
+        (30, 10)
     }
 }
 

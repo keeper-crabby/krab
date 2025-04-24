@@ -63,6 +63,9 @@ pub enum InsertMasterExitState {
 /// * `new` - Creates a new `InsertMaster`
 /// * `master` - Returns the master password
 /// * `exit_state` - Returns the exit state
+/// * `min_area` - Returns the minimum area of the popup
+/// * `generate_input_config` - Returns the input config for the popup
+/// * `generate_button_config` - Returns the button config for the popup
 ///
 /// # Implements
 /// * `Popup` - The popup trait
@@ -108,6 +111,18 @@ impl InsertMaster {
         self.exit_state.clone()
     }
 
+    /// Returns the minimum area of the popup
+    /// 
+    /// # Returns
+    /// The minimum area of the popup
+    pub fn min_area() -> (u16, u16) {
+        (InputConfig::width(), InputConfig::height() + ButtonConfig::height())
+    }
+
+    /// Returns the maximum area of the popup
+    /// 
+    /// # Returns
+    /// The maximum area of the popup
     fn generate_input_config(&self) -> InputConfig {
         InputConfig::new(
             self.state == InsertMasterState::Master,
@@ -123,6 +138,13 @@ impl InsertMaster {
         )
     }
 
+    /// Returns the button config for the given input
+    /// 
+    /// # Arguments
+    /// * `input` - The input
+    /// 
+    /// # Returns
+    /// The button config for the given input
     fn generate_button_config(&self, input: MasterPasswordButton) -> ButtonConfig {
         match input {
             MasterPasswordButton::Confirm => ButtonConfig::new(
