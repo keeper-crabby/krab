@@ -1,17 +1,30 @@
 use ratatui::{
     crossterm::event::{KeyCode, KeyEvent},
     prelude::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
-    text::{Line, Span},
-    widgets::{Block, Clear, Paragraph},
+    widgets::Clear,
     Frame,
 };
 
 use crate::{
-    centered_rect,
+    centered_absolute_rect,
+    components::{
+        button::{Button, ButtonConfig},
+        input::{Input, InputConfig},
+    },
     popups::{Popup, PopupType},
     Application,
 };
+
+/// Represents the buttons in the insert master password popup
+///
+/// # Variants
+/// * `Confirm` - The confirm button
+/// * `Quit` - The quit button
+#[derive(Debug, Clone, PartialEq)]
+enum MasterPasswordButton {
+    Confirm,
+    Quit,
+}
 
 /// Represents the state of the insert master popup
 ///
@@ -19,7 +32,7 @@ use crate::{
 /// * `Master` - The master state
 /// * `Confirm` - The confirm state
 /// * `Quit` - The quit state
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum InsertMasterState {
     Master,
     Confirm,
@@ -43,21 +56,23 @@ pub enum InsertMasterExitState {
 /// * `master` - The master
 /// * `state` - The state
 /// * `exit_state` - The exit state
-/// * `x_percent` - The x percentage
-/// * `y_percent` - The y percentage
+/// * `cursors` - The cursors
+/// * `input_offsets` - The input offsets
 ///
 /// # Methods
 /// * `new` - Creates a new `InsertMaster`
+/// * `master` - Returns the master password
+/// * `exit_state` - Returns the exit state
 ///
 /// # Implements
 /// * `Popup` - The popup trait
 #[derive(Clone)]
 pub struct InsertMaster {
-    pub master: String,
-    pub state: InsertMasterState,
-    pub exit_state: Option<InsertMasterExitState>,
-    x_percent: u16,
-    y_percent: u16,
+    master: String,
+    state: InsertMasterState,
+    exit_state: Option<InsertMasterExitState>,
+    cursor: u16,
+    input_offset: u16,
 }
 
 impl InsertMaster {
@@ -66,68 +81,89 @@ impl InsertMaster {
     /// # Returns
     /// A new `InsertMaster`
     pub fn new() -> Self {
+        let cursor = 0;
+        let input_offset = 0;
         InsertMaster {
             master: String::new(),
             state: InsertMasterState::Master,
             exit_state: None,
-            x_percent: 40,
-            y_percent: 20,
+            cursor,
+            input_offset,
         }
     }
 
-    /// Appends a character to the master
+    /// Returns the master password
     ///
-    /// # Arguments
-    /// * `c` - The character to append
-    pub fn master_append(&mut self, c: char) {
-        self.master.push(c);
+    /// # Returns
+    /// The master password
+    pub fn master(&self) -> String {
+        self.master.clone()
     }
 
-    /// Pops a character from the master
-    pub fn master_pop(&mut self) {
-        self.master.pop();
+    /// Returns the state of the popup
+    ///
+    /// # Returns
+    /// The state of the popup
+    pub fn exit_state(&self) -> Option<InsertMasterExitState> {
+        self.exit_state.clone()
+    }
+
+    fn generate_input_config(&self) -> InputConfig {
+        InputConfig::new(
+            self.state == InsertMasterState::Master,
+            self.master(),
+            true,
+            "Master password".to_string(),
+            if self.state == InsertMasterState::Master {
+                Some(self.cursor)
+            } else {
+                None
+            },
+            self.input_offset,
+        )
+    }
+
+    fn generate_button_config(&self, input: MasterPasswordButton) -> ButtonConfig {
+        match input {
+            MasterPasswordButton::Confirm => ButtonConfig::new(
+                self.state == InsertMasterState::Confirm,
+                "Confirm".to_string(),
+            ),
+            MasterPasswordButton::Quit => {
+                ButtonConfig::new(self.state == InsertMasterState::Quit, "Quit".to_string())
+            }
+        }
     }
 }
 
 impl Popup for InsertMaster {
     fn render(&self, f: &mut Frame, _app: &Application, rect: Rect) {
+        let height = InputConfig::height() + ButtonConfig::height();
+        let width = InputConfig::width();
+        let rect = centered_absolute_rect(rect, width, height);
         let layout = Layout::default()
             .direction(Direction::Vertical)
-            .constraints(vec![Constraint::Min(0), Constraint::Min(0)])
+            .constraints(vec![
+                Constraint::Length(InputConfig::height()),
+                Constraint::Length(ButtonConfig::height()),
+            ])
             .split(rect);
-
-        let text = vec![Line::from(vec![Span::raw(self.master.clone())])];
-        let master_p =
-            Paragraph::new(text).block(Block::bordered().title("Master password").border_style(
-                Style::default().fg(match self.state {
-                    InsertMasterState::Master => Color::White,
-                    _ => Color::DarkGray,
-                }),
-            ));
 
         let inner_layout = Layout::default()
             .direction(Direction::Horizontal)
             .constraints(vec![Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)])
             .split(layout[1]);
 
-        let quit_p = Paragraph::new(Span::raw("Quit")).block(Block::bordered().border_style(
-            Style::default().fg(match self.state {
-                InsertMasterState::Quit => Color::White,
-                _ => Color::DarkGray,
-            }),
-        ));
+        let master_config = self.generate_input_config();
 
-        let confirm_p = Paragraph::new(Span::raw("Confirm")).block(Block::bordered().border_style(
-            Style::default().fg(match self.state {
-                InsertMasterState::Confirm => Color::White,
-                _ => Color::DarkGray,
-            }),
-        ));
-
+        let confirm_config = self.generate_button_config(MasterPasswordButton::Confirm);
+        let quit_config = self.generate_button_config(MasterPasswordButton::Quit);
         f.render_widget(Clear, rect);
-        f.render_widget(master_p, layout[0]);
-        f.render_widget(quit_p, inner_layout[0]);
-        f.render_widget(confirm_p, inner_layout[1]);
+        let mut buffer = f.buffer_mut();
+
+        Input::render(&mut buffer, layout[0], &master_config);
+        Button::render(&mut buffer, inner_layout[0], &quit_config);
+        Button::render(&mut buffer, inner_layout[1], &confirm_config);
     }
 
     fn handle_key(
@@ -140,16 +176,17 @@ impl Popup for InsertMaster {
 
         match self.state {
             InsertMasterState::Master => match key.code {
-                KeyCode::Char(c) => {
-                    self.master_append(c);
-                }
-                KeyCode::Backspace => {
-                    self.master_pop();
-                }
                 KeyCode::Down | KeyCode::Tab | KeyCode::Enter | KeyCode::Up => {
                     self.state = InsertMasterState::Quit;
                 }
-                _ => {}
+                _ => {
+                    let config = self.generate_input_config();
+                    let (value, cursor_position, input_offset) =
+                        Input::handle_key(key, &config, self.master());
+                    self.master = value;
+                    self.cursor = cursor_position;
+                    self.input_offset = input_offset;
+                }
             },
             InsertMasterState::Quit => match key.code {
                 KeyCode::Enter => {
@@ -191,7 +228,11 @@ impl Popup for InsertMaster {
     }
 
     fn wrapper(&self, rect: Rect) -> Rect {
-        centered_rect(rect, self.x_percent, self.y_percent)
+        centered_absolute_rect(
+            rect,
+            InputConfig::width(),
+            InputConfig::height() + ButtonConfig::height(),
+        )
     }
 
     fn popup_type(&self) -> PopupType {

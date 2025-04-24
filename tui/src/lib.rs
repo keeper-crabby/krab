@@ -23,7 +23,7 @@ pub mod popups;
 pub mod views;
 
 const COLOR_BLACK: &str = "#503D2D";
-const COLOR_CYAN: &str = "#1F9295";
+const _COLOR_CYAN: &str = "#1F9295";
 const COLOR_WHITE: &str = "#F0ECC9";
 const COLOR_ORANGE: &str = "#E3AD43";
 const COLOR_RED: &str = "#D44C1A";

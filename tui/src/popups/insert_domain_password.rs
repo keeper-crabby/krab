@@ -1,18 +1,44 @@
+use std::collections::HashMap;
+
 use krab_backend::generate_password;
 use ratatui::{
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
     prelude::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
-    text::{Line, Span},
-    widgets::{Block, Clear, Paragraph},
+    widgets::Clear,
     Frame,
 };
 
 use crate::{
-    centered_rect,
+    centered_absolute_rect,
+    components::{
+        button::{Button, ButtonConfig},
+        input::{Input, InputConfig},
+    },
     popups::{Popup, PopupType},
     Application,
 };
+
+/// Represents the domain password input fields
+///
+/// # Variants
+/// * `Username` - The username field
+/// * `MasterPassword` - The master password field
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+enum DomainPasswordInput {
+    Domain,
+    Password,
+}
+
+/// Represents the buttons in the insert domain password popup
+///
+/// # Variants
+/// * `Confirm` - The confirm button
+/// * `Quit` - The quit button
+#[derive(Debug, Clone, PartialEq)]
+enum DomainPasswordButton {
+    Confirm,
+    Quit,
+}
 
 /// Represents the state of the insert domain password popup
 ///
@@ -21,7 +47,7 @@ use crate::{
 /// * `Password` - The password state
 /// * `Confirm` - The confirm state
 /// * `Quit` - The quit state
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum InsertDomainPasswordState {
     Domain,
     Password,
@@ -47,22 +73,25 @@ pub enum InsertDomainPasswordExitState {
 /// * `password` - The password
 /// * `state` - The state
 /// * `exit_state` - The exit state
-/// * `x_percent` - The x percentage
-/// * `y_percent` - The y percentage
+/// * `cursors` - The cursors
+/// * `input_offsets` - The input offsets
 ///
 /// # Methods
 /// * `new` - Creates a new `InsertDomainPassword`
+/// * `exit_state` - Returns the exit state of the popup
+/// * `domain` - Returns the domain of the popup
+/// * `password` - Returns the password of the popup
 ///
 /// # Implements
 /// * `Popup` - The popup trait
 #[derive(Clone)]
 pub struct InsertDomainPassword {
-    pub domain: String,
-    pub password: String,
-    pub state: InsertDomainPasswordState,
-    pub exit_state: Option<InsertDomainPasswordExitState>,
-    x_percent: u16,
-    y_percent: u16,
+    domain: String,
+    password: String,
+    state: InsertDomainPasswordState,
+    exit_state: Option<InsertDomainPasswordExitState>,
+    cursors: HashMap<DomainPasswordInput, u16>,
+    input_offsets: HashMap<DomainPasswordInput, u16>,
 }
 
 impl InsertDomainPassword {
@@ -71,95 +100,136 @@ impl InsertDomainPassword {
     /// # Returns
     /// A new `InsertDomainPassword`
     pub fn new() -> Self {
+        let mut cursors = HashMap::new();
+        let mut input_offsets = HashMap::new();
+        cursors.insert(DomainPasswordInput::Domain, 0);
+        cursors.insert(DomainPasswordInput::Password, 0);
+        input_offsets.insert(DomainPasswordInput::Domain, 0);
+        input_offsets.insert(DomainPasswordInput::Password, 0);
         InsertDomainPassword {
             domain: String::new(),
             password: String::new(),
             state: InsertDomainPasswordState::Domain,
             exit_state: None,
-            x_percent: 40,
-            y_percent: 20,
+            cursors,
+            input_offsets,
         }
     }
 
-    /// Appends a character to the domain
+    /// Returns the exit state of the popup
     ///
-    /// # Arguments
-    /// * `c` - The character to append
-    pub fn domain_append(&mut self, c: char) {
-        self.domain.push(c);
+    /// # Returns
+    /// An `Option<InsertDomainPasswordExitState>` representing the exit state of the popup
+    pub fn exit_state(&self) -> Option<InsertDomainPasswordExitState> {
+        self.exit_state.clone()
     }
 
-    /// Appends a character to the password
+    /// Returns the domain of the popup
     ///
-    /// # Arguments
-    /// * `c` - The character to append
-    pub fn password_append(&mut self, c: char) {
-        self.password.push(c);
+    /// # Returns
+    /// A `String` representing the domain of the popup
+    pub fn domain(&self) -> String {
+        self.domain.clone()
     }
 
-    /// Pops a character from the domain
-    pub fn domain_pop(&mut self) {
-        self.domain.pop();
+    /// Returns the password of the popup
+    ///
+    /// # Returns
+    /// A `String` representing the password of the popup
+    pub fn password(&self) -> String {
+        self.password.clone()
     }
 
-    /// Pops a character from the password
-    pub fn password_pop(&mut self) {
-        self.password.pop();
+    fn generate_input_config(&self, input: DomainPasswordInput) -> InputConfig {
+        match input {
+            DomainPasswordInput::Domain => InputConfig::new(
+                self.state == InsertDomainPasswordState::Domain,
+                self.domain.clone(),
+                false,
+                "Domain".to_string(),
+                if self.state == InsertDomainPasswordState::Domain {
+                    Some(
+                        self.cursors
+                            .get(&DomainPasswordInput::Domain)
+                            .unwrap()
+                            .clone(),
+                    )
+                } else {
+                    None
+                },
+                self.input_offsets
+                    .get(&DomainPasswordInput::Domain)
+                    .unwrap()
+                    .clone(),
+            ),
+            DomainPasswordInput::Password => InputConfig::new(
+                self.state == InsertDomainPasswordState::Password,
+                self.password.clone(),
+                true,
+                "Password".to_string(),
+                if self.state == InsertDomainPasswordState::Password {
+                    Some(
+                        self.cursors
+                            .get(&DomainPasswordInput::Password)
+                            .unwrap()
+                            .clone(),
+                    )
+                } else {
+                    None
+                },
+                self.input_offsets
+                    .get(&DomainPasswordInput::Password)
+                    .unwrap()
+                    .clone(),
+            ),
+        }
+    }
+
+    fn generate_button_config(&self, input: DomainPasswordButton) -> ButtonConfig {
+        match input {
+            DomainPasswordButton::Confirm => ButtonConfig::new(
+                self.state == InsertDomainPasswordState::Confirm,
+                "Confirm".to_string(),
+            ),
+            DomainPasswordButton::Quit => ButtonConfig::new(
+                self.state == InsertDomainPasswordState::Quit,
+                "Quit".to_string(),
+            ),
+        }
     }
 }
 
 impl Popup for InsertDomainPassword {
     fn render(&self, f: &mut Frame, _app: &Application, rect: Rect) {
+        let height = 2 * InputConfig::height() + ButtonConfig::height();
+        let width = InputConfig::width();
+        let rect = centered_absolute_rect(rect, width, height);
         let layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints(vec![
-                Constraint::Min(0),
-                Constraint::Min(0),
-                Constraint::Min(0),
+                Constraint::Length(InputConfig::height()),
+                Constraint::Length(InputConfig::height()),
+                Constraint::Length(ButtonConfig::height()),
             ])
             .split(rect);
-
-        let text = vec![Line::from(vec![Span::raw(self.domain.clone())])];
-        let domain_p = Paragraph::new(text).block(Block::bordered().title("Domain").border_style(
-            Style::default().fg(match self.state {
-                InsertDomainPasswordState::Domain => Color::White,
-                _ => Color::DarkGray,
-            }),
-        ));
-
-        let text = vec![Line::from(vec![Span::raw(self.password.clone())])];
-        let password_p =
-            Paragraph::new(text).block(Block::bordered().title("Password").border_style(
-                Style::default().fg(match self.state {
-                    InsertDomainPasswordState::Password => Color::White,
-                    _ => Color::DarkGray,
-                }),
-            ));
 
         let inner_layout = Layout::default()
             .direction(Direction::Horizontal)
             .constraints(vec![Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)])
             .split(layout[2]);
 
-        let quit_p = Paragraph::new(Span::raw("Quit")).block(Block::bordered().border_style(
-            Style::default().fg(match self.state {
-                InsertDomainPasswordState::Quit => Color::White,
-                _ => Color::DarkGray,
-            }),
-        ));
+        let domain_config = self.generate_input_config(DomainPasswordInput::Domain);
+        let password_config = self.generate_input_config(DomainPasswordInput::Password);
 
-        let confirm_p = Paragraph::new(Span::raw("Confirm")).block(Block::bordered().border_style(
-            Style::default().fg(match self.state {
-                InsertDomainPasswordState::Confirm => Color::White,
-                _ => Color::DarkGray,
-            }),
-        ));
-
+        let confirm_config = self.generate_button_config(DomainPasswordButton::Confirm);
+        let quit_config = self.generate_button_config(DomainPasswordButton::Quit);
         f.render_widget(Clear, rect);
-        f.render_widget(domain_p, layout[0]);
-        f.render_widget(password_p, layout[1]);
-        f.render_widget(quit_p, inner_layout[0]);
-        f.render_widget(confirm_p, inner_layout[1]);
+        let mut buffer = f.buffer_mut();
+
+        Input::render(&mut buffer, layout[0], &domain_config);
+        Input::render(&mut buffer, layout[1], &password_config);
+        Button::render(&mut buffer, inner_layout[0], &quit_config);
+        Button::render(&mut buffer, inner_layout[1], &confirm_config);
     }
 
     fn handle_key(
@@ -172,33 +242,37 @@ impl Popup for InsertDomainPassword {
 
         match self.state {
             InsertDomainPasswordState::Domain => match key.code {
-                KeyCode::Char(c) => {
-                    self.domain_append(c);
-                }
-                KeyCode::Backspace => {
-                    self.domain_pop();
-                }
                 KeyCode::Up => {
                     self.state = InsertDomainPasswordState::Quit;
                 }
                 KeyCode::Down | KeyCode::Tab | KeyCode::Enter => {
                     self.state = InsertDomainPasswordState::Password;
                 }
-                _ => {}
+                _ => {
+                    let config = self.generate_input_config(DomainPasswordInput::Domain);
+                    let (value, cursor_position, input_offset) =
+                        Input::handle_key(key, &config, self.domain());
+                    self.domain = value;
+                    self.cursors
+                        .insert(DomainPasswordInput::Domain, cursor_position);
+                    self.input_offsets
+                        .insert(DomainPasswordInput::Domain, input_offset);
+                }
             },
             InsertDomainPasswordState::Password => match key.code {
                 KeyCode::Char('g') => {
                     if key.modifiers.contains(KeyModifiers::CONTROL) {
                         self.password = generate_password();
                     } else {
-                        self.password_append('g');
+                        let config = self.generate_input_config(DomainPasswordInput::Password);
+                        let (value, cursor_position, input_offset) =
+                            Input::handle_key(key, &config, self.password());
+                        self.password = value;
+                        self.cursors
+                            .insert(DomainPasswordInput::Password, cursor_position);
+                        self.input_offsets
+                            .insert(DomainPasswordInput::Password, input_offset);
                     }
-                }
-                KeyCode::Char(c) => {
-                    self.password_append(c);
-                }
-                KeyCode::Backspace => {
-                    self.password_pop();
                 }
                 KeyCode::Up => {
                     self.state = InsertDomainPasswordState::Domain;
@@ -206,7 +280,16 @@ impl Popup for InsertDomainPassword {
                 KeyCode::Down | KeyCode::Tab | KeyCode::Enter => {
                     self.state = InsertDomainPasswordState::Quit;
                 }
-                _ => {}
+                _ => {
+                    let config = self.generate_input_config(DomainPasswordInput::Password);
+                    let (value, cursor_position, input_offset) =
+                        Input::handle_key(key, &config, self.password());
+                    self.password = value;
+                    self.cursors
+                        .insert(DomainPasswordInput::Password, cursor_position);
+                    self.input_offsets
+                        .insert(DomainPasswordInput::Password, input_offset);
+                }
             },
             InsertDomainPasswordState::Quit => match key.code {
                 KeyCode::Enter => {
@@ -254,7 +337,11 @@ impl Popup for InsertDomainPassword {
     }
 
     fn wrapper(&self, rect: Rect) -> Rect {
-        centered_rect(rect, self.x_percent, self.y_percent)
+        centered_absolute_rect(
+            rect,
+            InputConfig::width(),
+            InputConfig::height() * 2 + ButtonConfig::height(),
+        )
     }
 
     fn popup_type(&self) -> PopupType {

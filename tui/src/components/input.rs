@@ -259,9 +259,17 @@ mod tests {
 
     #[test]
     fn test_input_insert() {
-        let config = InputConfig::new(true, "test".to_string(), false, "Test".to_string(), Some(4), 0);
+        let config = InputConfig::new(
+            true,
+            "test".to_string(),
+            false,
+            "Test".to_string(),
+            Some(4),
+            0,
+        );
         let key = KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE);
-        let (value, cursor_position, input_offset) = Input::handle_key(&key, &config, "test".to_string());
+        let (value, cursor_position, input_offset) =
+            Input::handle_key(&key, &config, "test".to_string());
         assert_eq!(value, "testa".to_string());
         assert_eq!(cursor_position, 5);
         assert_eq!(input_offset, 0);
@@ -275,7 +283,8 @@ mod tests {
         }
         let config = InputConfig::new(true, value.clone(), false, "Test".to_string(), Some(3), 0);
         let key = KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE);
-        let (value, cursor_position, input_offset) = Input::handle_key(&key, &config, value.clone());
+        let (value, cursor_position, input_offset) =
+            Input::handle_key(&key, &config, value.clone());
         assert_eq!(value, value.clone());
         assert_eq!(cursor_position, 3);
         assert_eq!(input_offset, 0);
@@ -283,9 +292,17 @@ mod tests {
 
     #[test]
     fn test_input_backspace() {
-        let config = InputConfig::new(true, "test".to_string(), false, "Test".to_string(), Some(4), 0);
+        let config = InputConfig::new(
+            true,
+            "test".to_string(),
+            false,
+            "Test".to_string(),
+            Some(4),
+            0,
+        );
         let key = KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE);
-        let (value, cursor_position, input_offset) = Input::handle_key(&key, &config, "test".to_string());
+        let (value, cursor_position, input_offset) =
+            Input::handle_key(&key, &config, "test".to_string());
         assert_eq!(value, "tes".to_string());
         assert_eq!(cursor_position, 3);
         assert_eq!(input_offset, 0);
@@ -293,9 +310,17 @@ mod tests {
 
     #[test]
     fn test_input_delete() {
-        let config = InputConfig::new(true, "test".to_string(), false, "Test".to_string(), Some(1), 0);
+        let config = InputConfig::new(
+            true,
+            "test".to_string(),
+            false,
+            "Test".to_string(),
+            Some(1),
+            0,
+        );
         let key = KeyEvent::new(KeyCode::Delete, KeyModifiers::NONE);
-        let (value, cursor_position, input_offset) = Input::handle_key(&key, &config, "test".to_string());
+        let (value, cursor_position, input_offset) =
+            Input::handle_key(&key, &config, "test".to_string());
         assert_eq!(value, "tst".to_string());
         assert_eq!(cursor_position, 1);
         assert_eq!(input_offset, 0);
@@ -303,9 +328,17 @@ mod tests {
 
     #[test]
     fn test_input_left() {
-        let config = InputConfig::new(true, "test".to_string(), false, "Test".to_string(), Some(2), 0);
+        let config = InputConfig::new(
+            true,
+            "test".to_string(),
+            false,
+            "Test".to_string(),
+            Some(2),
+            0,
+        );
         let key = KeyEvent::new(KeyCode::Left, KeyModifiers::NONE);
-        let (value, cursor_position, input_offset) = Input::handle_key(&key, &config, "test".to_string());
+        let (value, cursor_position, input_offset) =
+            Input::handle_key(&key, &config, "test".to_string());
         assert_eq!(value, "test".to_string());
         assert_eq!(cursor_position, 1);
         assert_eq!(input_offset, 0);
@@ -313,9 +346,17 @@ mod tests {
 
     #[test]
     fn test_input_right() {
-        let config = InputConfig::new(true, "test".to_string(), false, "Test".to_string(), Some(2), 0);
+        let config = InputConfig::new(
+            true,
+            "test".to_string(),
+            false,
+            "Test".to_string(),
+            Some(2),
+            0,
+        );
         let key = KeyEvent::new(KeyCode::Right, KeyModifiers::NONE);
-        let (value, cursor_position, input_offset) = Input::handle_key(&key, &config, "test".to_string());
+        let (value, cursor_position, input_offset) =
+            Input::handle_key(&key, &config, "test".to_string());
         assert_eq!(value, "test".to_string());
         assert_eq!(cursor_position, 3);
         assert_eq!(input_offset, 0);
@@ -327,9 +368,17 @@ mod tests {
         for _ in 0..MAX_INPUT_LENGTH {
             value.push('a');
         }
-        let config = InputConfig::new(true, value.clone(), false, "Test".to_string(), Some(255), 255 - MAX_INPUT_WIDTH + 1);
+        let config = InputConfig::new(
+            true,
+            value.clone(),
+            false,
+            "Test".to_string(),
+            Some(255),
+            255 - MAX_INPUT_WIDTH + 1,
+        );
         let key = KeyEvent::new(KeyCode::Right, KeyModifiers::NONE);
-        let (value, cursor_position, input_offset) = Input::handle_key(&key, &config, value.clone());
+        let (value, cursor_position, input_offset) =
+            Input::handle_key(&key, &config, value.clone());
         assert_eq!(value, value.clone());
         assert_eq!(cursor_position, 255);
         assert_eq!(input_offset, 255 - MAX_INPUT_WIDTH + 1);
@@ -337,9 +386,17 @@ mod tests {
 
     #[test]
     fn test_input_first_offset() {
-        let config = InputConfig::new(true, "0123456789012345678901234567890".to_string(), false, "Test".to_string(), Some(31), 0);
+        let config = InputConfig::new(
+            true,
+            "0123456789012345678901234567890".to_string(),
+            false,
+            "Test".to_string(),
+            Some(31),
+            0,
+        );
         let key = KeyEvent::new(KeyCode::Char('1'), KeyModifiers::NONE);
-        let (value, cursor_position, input_offset) = Input::handle_key(&key, &config, "0123456789012345678901234567890".to_string());
+        let (value, cursor_position, input_offset) =
+            Input::handle_key(&key, &config, "0123456789012345678901234567890".to_string());
         assert_eq!(value, "01234567890123456789012345678901".to_string());
         assert_eq!(cursor_position, 32);
         assert_eq!(input_offset, 1);
@@ -347,10 +404,24 @@ mod tests {
 
     #[test]
     fn test_input_first_offset_left() {
-        let config = InputConfig::new(true, "0123456789012345678901234567890123456789012345678901234567890".to_string(), false, "Test".to_string(), Some(29), 28);
+        let config = InputConfig::new(
+            true,
+            "0123456789012345678901234567890123456789012345678901234567890".to_string(),
+            false,
+            "Test".to_string(),
+            Some(29),
+            28,
+        );
         let key = KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE);
-        let (value, cursor_position, input_offset) = Input::handle_key(&key, &config, "0123456789012345678901234567890123456789012345678901234567890".to_string());
-        assert_eq!(value, "012345678901234567890123456790123456789012345678901234567890".to_string());
+        let (value, cursor_position, input_offset) = Input::handle_key(
+            &key,
+            &config,
+            "0123456789012345678901234567890123456789012345678901234567890".to_string(),
+        );
+        assert_eq!(
+            value,
+            "012345678901234567890123456790123456789012345678901234567890".to_string()
+        );
         assert_eq!(cursor_position, 28);
         assert_eq!(input_offset, 27);
     }

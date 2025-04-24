@@ -7,9 +7,9 @@ use ratatui::{
 };
 
 use crate::{
-    centered_rect,
+    centered_absolute_rect, from,
     popups::{Popup, PopupType},
-    Application,
+    Application, COLOR_RED,
 };
 
 /// Represents the message popup
@@ -24,7 +24,7 @@ use crate::{
 /// * `Popup` - The popup trait
 #[derive(Clone)]
 pub struct MessagePopup {
-    pub message: String,
+    message: String,
 }
 
 impl MessagePopup {
@@ -43,11 +43,12 @@ impl MessagePopup {
 impl Popup for MessagePopup {
     fn render(&self, f: &mut Frame, _app: &Application, rect: Rect) {
         let message_p = Paragraph::new(self.message.clone())
+            .style(Style::default().fg(from(COLOR_RED).unwrap_or(Color::Red)))
             .block(
                 Block::bordered()
                     .title(" Press any key to continue ")
                     .padding(Padding::new(0, 0, rect.height / 3, 0))
-                    .border_style(Style::default().fg(Color::White)),
+                    .border_style(Style::default().fg(from(COLOR_RED).unwrap_or(Color::White))),
             )
             .alignment(Alignment::Center);
 
@@ -67,7 +68,7 @@ impl Popup for MessagePopup {
     }
 
     fn wrapper(&self, rect: Rect) -> Rect {
-        centered_rect(rect, 30, 15)
+        centered_absolute_rect(rect, 30, 10)
     }
 
     fn popup_type(&self) -> PopupType {

@@ -7,16 +7,12 @@ use ratatui::{
 };
 
 use crate::{
-    centered_rect,
+    centered_absolute_rect, from,
     popups::{Popup, PopupType},
-    Application,
+    Application, COLOR_RED,
 };
 
 /// Represents the exit popup
-///
-/// # Fields
-/// * `x_percent` - The x percentage
-/// * `y_percent` - The y percentage
 ///
 /// # Methods
 /// * `new` - Creates a new `Exit`
@@ -24,10 +20,7 @@ use crate::{
 /// # Implements
 /// * `Popup` - The popup trait
 #[derive(Clone)]
-pub struct Exit {
-    x_percent: u16,
-    y_percent: u16,
-}
+pub struct Exit {}
 
 impl Exit {
     /// Creates a new exit popup
@@ -35,19 +28,18 @@ impl Exit {
     /// # Returns
     /// A new `Exit`
     pub fn new() -> Self {
-        Exit {
-            x_percent: 50,
-            y_percent: 50,
-        }
+        Exit {}
     }
 }
+
+// Is this even necessary?
 
 impl Popup for Exit {
     fn render(&self, f: &mut Frame, _app: &Application, rect: Rect) {
         let block = Block::default()
-            .title("Press q to exit")
+            .title(" Press q to exit ")
             .borders(Borders::ALL)
-            .style(Style::default().fg(Color::Red));
+            .style(Style::default().fg(from(COLOR_RED).unwrap_or(Color::Red)));
         f.render_widget(Clear, rect);
         f.render_widget(block, rect);
     }
@@ -69,7 +61,7 @@ impl Popup for Exit {
     }
 
     fn wrapper(&self, rect: Rect) -> Rect {
-        centered_rect(rect, self.x_percent, self.y_percent)
+        centered_absolute_rect(rect, 30, 10)
     }
 
     fn popup_type(&self) -> PopupType {

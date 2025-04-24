@@ -372,11 +372,11 @@ impl View for Register {
 
         match insert_password {
             Ok(insert_password) => {
-                if insert_password.exit_state == Some(InsertDomainPasswordExitState::Quit) {
+                if insert_password.exit_state() == Some(InsertDomainPasswordExitState::Quit) {
                     return app;
                 }
-                domain = insert_password.domain.clone();
-                password = insert_password.password.clone();
+                domain = insert_password.domain();
+                password = insert_password.password();
             }
             Err(_) => {
                 unreachable!();

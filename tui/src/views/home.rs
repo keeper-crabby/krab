@@ -25,7 +25,7 @@ use krab_backend::user::{ReadOnlyRecords, RecordOperationConfig, User};
 const DOMAIN_PASSWORD_LIST_ITEM_HEIGHT: u16 = 4;
 const RIGHT_MARGIN: u16 = 6;
 const LEFT_PADDING: u16 = 2;
-const MAX_ENTRY_LENGTH: u16 = 32;
+const MAX_ENTRY_LENGTH: u16 = 256;
 const DOMAIN_PASSWORD_MIDDLE_WIDTH: u16 = 3;
 
 /// Represents the operation over a secret
@@ -346,7 +346,7 @@ impl Home {
             let text = if self.secrets.shown_secrets.contains(&index) {
                 format!("\n  {} : {}", key, value)
             } else {
-                "\n".to_string() + &hidden_value(key.to_string())
+                "\n".to_string() + &hidden_value(key.to_string(), value.len())
             };
             let text = Text::styled(text, style);
             text.render(Rect::new(cursor_offset, y, width, 3), buffer);
@@ -495,11 +495,11 @@ impl View for Home {
 
         match insert_password {
             Ok(insert_password) => {
-                if insert_password.exit_state == Some(InsertDomainPasswordExitState::Quit) {
+                if insert_password.exit_state() == Some(InsertDomainPasswordExitState::Quit) {
                     return app;
                 }
-                domain = insert_password.domain.clone();
-                password = insert_password.password.clone();
+                domain = insert_password.domain();
+                password = insert_password.password();
             }
             Err(_) => {
                 unreachable!();
@@ -542,10 +542,10 @@ impl View for Home {
 
         match insert_master {
             Ok(insert_master) => {
-                if insert_master.exit_state == Some(InsertMasterExitState::Quit) {
+                if insert_master.exit_state() == Some(InsertMasterExitState::Quit) {
                     return app;
                 }
-                master_password = insert_master.master.clone();
+                master_password = insert_master.master();
             }
             Err(_) => {
                 unreachable!();
@@ -656,12 +656,12 @@ impl View for Home {
 ///
 /// # Returns
 /// A hidden value
-fn hidden_value(domain: String) -> String {
+fn hidden_value(domain: String, length: usize) -> String {
     assert!(domain.len() <= MAX_ENTRY_LENGTH as usize);
 
     let mut hidden_value = "  ".to_string() + &domain.clone();
     hidden_value.push_str(" : ");
-    for _ in 0..MAX_ENTRY_LENGTH {
+    for _ in 0..length {
         hidden_value.push_str("•");
     }
 
