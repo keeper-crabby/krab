@@ -142,9 +142,9 @@ impl InsertDomainPassword {
     pub fn password(&self) -> String {
         self.password.clone()
     }
-    
+
     /// Returns the minimum area of the popup
-    /// 
+    ///
     /// # Returns
     /// A tuple representing the minimum area of the popup
     pub fn min_area() -> (u16, u16) {
@@ -154,10 +154,10 @@ impl InsertDomainPassword {
     }
 
     /// Generates the input config for the popup
-    /// 
+    ///
     /// # Arguments
     /// * `input` - The input to generate the config for
-    /// 
+    ///
     /// # Returns
     /// An `InputConfig` representing the input config for the popup
     fn generate_input_config(&self, input: DomainPasswordInput) -> InputConfig {
@@ -186,7 +186,7 @@ impl InsertDomainPassword {
                 self.state == InsertDomainPasswordState::Password,
                 self.password.clone(),
                 true,
-                "Password".to_string(),
+                "Password | CTRL + g - generate".to_string(),
                 if self.state == InsertDomainPasswordState::Password {
                     Some(
                         self.cursors
@@ -206,10 +206,10 @@ impl InsertDomainPassword {
     }
 
     /// Generates the button config for the popup
-    /// 
+    ///
     /// # Arguments
     /// * `input` - The input to generate the config for
-    /// 
+    ///
     /// # Returns
     /// A `ButtonConfig` representing the button config for the popup
     fn generate_button_config(&self, input: DomainPasswordButton) -> ButtonConfig {
@@ -290,6 +290,8 @@ impl Popup for InsertDomainPassword {
                 KeyCode::Char('g') => {
                     if key.modifiers.contains(KeyModifiers::CONTROL) {
                         self.password = generate_password();
+                        self.cursors.insert(DomainPasswordInput::Password, 0);
+                        self.input_offsets.insert(DomainPasswordInput::Password, 0);
                     } else {
                         let config = self.generate_input_config(DomainPasswordInput::Password);
                         let (value, cursor_position, input_offset) =

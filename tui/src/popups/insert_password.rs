@@ -1,5 +1,6 @@
+use krab_backend::generate_password;
 use ratatui::{
-    crossterm::event::{KeyCode, KeyEvent},
+    crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
     layout::Alignment,
     prelude::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
@@ -137,7 +138,7 @@ impl InsertPassword {
             self.state == InsertPasswordState::Password,
             self.password(),
             true,
-            "Password".to_string(),
+            "Password | CTRL + g - generate".to_string(),
             if self.state == InsertPasswordState::Password {
                 Some(self.cursor)
             } else {
@@ -193,8 +194,13 @@ impl Popup for InsertPassword {
         f.render_widget(Clear, rect);
         let mut buffer = f.buffer_mut();
 
-        let domain = if self.domain.len() > InputConfig::width() as usize {
-            self.domain.chars().take(InputConfig::width() as usize - 3).collect::<String>() + "..."
+        // - 4 is for the padding which InputConfig::width() adds, not the best approach but works for now
+        let domain = if self.domain.len() > InputConfig::width() as usize - 4 {
+            self.domain
+                .chars()
+                .take(InputConfig::width() as usize - 3 - 4)
+                .collect::<String>()
+                + "..."
         } else {
             self.domain.clone()
         };
@@ -227,6 +233,20 @@ impl Popup for InsertPassword {
             InsertPasswordState::Password => match key.code {
                 KeyCode::Down | KeyCode::Tab | KeyCode::Enter | KeyCode::Up => {
                     self.state = InsertPasswordState::Quit;
+                }
+                KeyCode::Char('g') => {
+                    if key.modifiers.contains(KeyModifiers::CONTROL) {
+                        self.password = generate_password();
+                        self.cursor = 0;
+                        self.input_offset = 0;
+                    } else {
+                        let config = self.generate_input_config();
+                        let (value, cursor_position, input_offset) =
+                            Input::handle_key(key, &config, self.password());
+                        self.password = value;
+                        self.cursor = cursor_position;
+                        self.input_offset = input_offset;
+                    }
                 }
                 _ => {
                     let config = self.generate_input_config();
