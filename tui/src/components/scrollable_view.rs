@@ -34,7 +34,8 @@ impl ScrollView {
         buffer_to_render: &Buffer,
         area: Rect,
     ) -> bool {
-        let area = centered_absolute_rect(area, area.width - 6, area.height - 4);
+        // - 2 for the borders, not the best approach but works for now
+        let area = centered_absolute_rect(area, area.width - 2, area.height - 2);
         if position.offset_x + area.width - 4 > buffer_to_render.area().width {
             return true;
         }
@@ -136,11 +137,11 @@ impl ScrollView {
         let buffer_to_render_width = buffer_to_render.area().width;
         let buffer_to_render_height = buffer_to_render.area().height;
 
-        let mut scrollbar_x_size = (area.width as f32 - 1.0) / buffer_to_render_width as f32;
+        let mut scrollbar_x_size = (area.width as f32 - 2.0) / buffer_to_render_width as f32;
         if scrollbar_x_size > 1.0 {
             scrollbar_x_size = 1.0;
         }
-        let mut scrollbar_y_size = (area.height as f32 - 2.0) / buffer_to_render_height as f32;
+        let mut scrollbar_y_size = (area.height as f32 - 1.0) / buffer_to_render_height as f32;
         if scrollbar_y_size > 1.0 {
             scrollbar_y_size = 1.0;
         }

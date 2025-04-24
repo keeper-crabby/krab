@@ -27,6 +27,7 @@ const RIGHT_MARGIN: u16 = 6;
 const LEFT_PADDING: u16 = 2;
 const MAX_ENTRY_LENGTH: u16 = 256;
 const DOMAIN_PASSWORD_MIDDLE_WIDTH: u16 = 3;
+const MIN_WIDTH: u16 = 128;
 
 /// Represents the operation over a secret
 ///
@@ -107,6 +108,9 @@ struct NewSecret {
 /// * `secrets` - The secrets
 /// * `selected_secret` - The selected secret
 /// * `shown_secrets` - The shown secrets
+///
+/// # Methods
+/// * `max_length` - Returns the max length of the secrets
 #[derive(Debug, Clone, PartialEq)]
 struct Secrets {
     secrets: Vec<(String, String)>,
@@ -305,14 +309,11 @@ impl Home {
     /// # Returns
     /// The width
     fn width(&self) -> u16 {
-        let max_domain_password_width =
-            MAX_ENTRY_LENGTH * 2 + LEFT_PADDING + DOMAIN_PASSWORD_MIDDLE_WIDTH;
-
-        let width = max_domain_password_width + RIGHT_MARGIN;
-        if width > self.area.width / 2 {
+        let width = self.secrets.max_length() as u16 + RIGHT_MARGIN + LEFT_PADDING;
+        if width > MIN_WIDTH {
             width
         } else {
-            self.area.width / 2
+            MIN_WIDTH
         }
     }
 
@@ -325,6 +326,7 @@ impl Home {
     fn render_secrets(&self, buffer: &mut Buffer, cursor_offset: u16, y_offset: u16) {
         let mut y = y_offset;
         let mut index = 0;
+        let width = self.width();
         for (key, value) in self.secrets.secrets.iter() {
             let style = if self.secrets.selected_secret == index {
                 Style::default()
@@ -334,7 +336,6 @@ impl Home {
                 Style::default().fg(from(COLOR_WHITE).unwrap_or(Color::White))
             };
             let cursor = self.current_secret_cursor(3, cursor_offset, index as u16, style);
-            let width = self.width();
             if y == 0 {
                 cursor.render(Rect::new(0, y + 1, cursor_offset, 3), buffer);
                 let separator = self.separator(buffer.area().width);
@@ -439,7 +440,7 @@ impl View for Home {
             if !ScrollView::check_if_width_out_of_bounds(
                 &self.position,
                 &self.buffer_to_render(),
-                self.area,
+                app.immutable_app_state.rect.unwrap_or(self.area),
             ) {
                 self.position.offset_x += 1;
             }
@@ -646,6 +647,20 @@ impl View for Home {
             }
             Some(Operation::Modify) => app,
         }
+    }
+}
+
+impl Secrets {
+    /// Return the max length of the secrets
+    ///
+    /// # Returns
+    /// The max length of the secrets
+    fn max_length(&self) -> usize {
+        self.secrets
+            .iter()
+            .map(|x| x.0.len() + x.1.len() + DOMAIN_PASSWORD_MIDDLE_WIDTH as usize)
+            .max()
+            .unwrap_or(0)
     }
 }
 
