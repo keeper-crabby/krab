@@ -274,36 +274,7 @@ fn run_app<B: Backend>(
     Ok(true)
 }
 
-// TODO: add error handling to centered_rect and centered_absolute_rect
-
-/// Returns a centered rectangle
-///
-/// # Arguments
-/// * `r` - The parent rectangle
-/// * `percent_x` - The percentage of the width
-/// * `percent_y` - The percentage of the height
-///
-/// # Returns
-/// A centered rectangle
-fn centered_rect(r: Rect, percent_x: u16, percent_y: u16) -> Rect {
-    let popup_layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Percentage((100 - percent_y) / 2),
-            Constraint::Percentage(percent_y),
-            Constraint::Percentage((100 - percent_y) / 2),
-        ])
-        .split(r);
-
-    Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage((100 - percent_x) / 2),
-            Constraint::Percentage(percent_x),
-            Constraint::Percentage((100 - percent_x) / 2),
-        ])
-        .split(popup_layout[1])[1]
-}
+// TODO: add error handling to centered_absolute_rect
 
 /// Returns a centered rectangle with absolute width and height
 ///
