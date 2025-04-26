@@ -360,6 +360,32 @@ impl Home {
         }
     }
 
+    /// Renders the header
+    ///
+    /// # Arguments
+    ///
+    /// * `buffer` - The mutable buffer to render to
+    /// * `area` - The area
+    /// * `cursor_offset` - The cursor offset
+    ///
+    /// # Returns
+    /// The cursor offset
+    fn render_header(&self, buffer: &mut Buffer, area: Rect, cursor_offset: u16) -> u16 {
+        let mut username = self.user.username().clone();
+        username.truncate(MAX_ENTRY_LENGTH as usize - cursor_offset as usize - "Welcome ".len());
+        let text = " ".repeat(cursor_offset as usize) + "Welcome " + username.as_str();
+        let header = Text::styled(
+            text,
+            Style::default().fg(from(COLOR_WHITE).unwrap_or(Color::White)),
+        );
+        header.render(Rect::new(0, 0, area.width, 1), buffer);
+
+        let separator = self.separator(buffer.area().width);
+        separator.render(Rect::new(cursor_offset, 1, self.width(), 1), buffer);
+
+        3
+    }
+
     /// Renders the legend
     ///
     /// # Arguments
@@ -369,19 +395,28 @@ impl Home {
     ///
     /// # Returns
     /// The y offset
-    fn render_legend(&self, buffer: &mut Buffer, area: Rect, cursor_offset: u16) -> u16 {
+    fn render_legend(
+        &self,
+        buffer: &mut Buffer,
+        area: Rect,
+        cursor_offset: u16,
+        y_offset: u16,
+    ) -> u16 {
         let text = " ".repeat(cursor_offset as usize) + 
             "j - down | k - up | h - left | l - right | q - quit | a - add | d - delete selected | e - edit selected | c - copy selected";
         let legend = Text::styled(
             text,
             Style::default().fg(from(COLOR_WHITE).unwrap_or(Color::White)),
         );
-        legend.render(Rect::new(0, 0, area.width, 1), buffer);
+        legend.render(Rect::new(0, y_offset, area.width, 1), buffer);
 
         let separator = self.separator(buffer.area().width);
-        separator.render(Rect::new(cursor_offset, 1, self.width(), 1), buffer);
+        separator.render(
+            Rect::new(cursor_offset, y_offset + 1, self.width(), 1),
+            buffer,
+        );
 
-        2
+        3
     }
 
     /// Returns the buffer to render
@@ -398,8 +433,13 @@ impl Home {
             (secrets_count as u16 * DOMAIN_PASSWORD_LIST_ITEM_HEIGHT) + 3,
         );
         let mut buffer = Buffer::empty(rect);
-        let y_offset = self.render_legend(&mut buffer, rect, cursor_offset);
-        self.render_secrets(&mut buffer, cursor_offset, y_offset);
+        let y_offset_header = self.render_header(&mut buffer, rect, cursor_offset);
+        let y_offset_legend = self.render_legend(&mut buffer, rect, cursor_offset, y_offset_header);
+        self.render_secrets(
+            &mut buffer,
+            cursor_offset,
+            y_offset_header + y_offset_legend,
+        );
 
         buffer
     }
@@ -700,49 +740,49 @@ impl View for Home {
     }
 
     fn handle_insert_password_popup(
-            &mut self,
-            app: Application,
-            popup: Box<dyn Popup>,
-        ) -> Application {
-            let password: String;
-            let insert_password = popup.downcast::<InsertPassword>();
-    
-            match insert_password {
-                Ok(insert_password) => {
-                    if insert_password.exit_state() == Some(InsertPasswordExitState::Quit) {
-                        return app;
-                    }
-                    password = insert_password.password();
+        &mut self,
+        app: Application,
+        popup: Box<dyn Popup>,
+    ) -> Application {
+        let password: String;
+        let insert_password = popup.downcast::<InsertPassword>();
+
+        match insert_password {
+            Ok(insert_password) => {
+                if insert_password.exit_state() == Some(InsertPasswordExitState::Quit) {
+                    return app;
                 }
-                Err(_) => {
-                    unreachable!();
-                }
+                password = insert_password.password();
             }
-    
-            if password.is_empty() {
-                let mut app = app.clone();
-                app.mutable_app_state
-                    .popups
-                    .push(Box::new(MessagePopup::new(
-                        "Password cannot be empty".to_string(),
-                    )));
-                return app;
+            Err(_) => {
+                unreachable!();
             }
-    
-            self.new_secret = Some(NewSecret {
-                domain: "".to_string(),
-                password: password.clone(),
-            });
-    
+        }
+
+        if password.is_empty() {
             let mut app = app.clone();
-    
-            app.state = ViewState::Home(self.clone());
-    
             app.mutable_app_state
                 .popups
-                .push(Box::new(InsertMaster::new()));
-    
-            app
+                .push(Box::new(MessagePopup::new(
+                    "Password cannot be empty".to_string(),
+                )));
+            return app;
+        }
+
+        self.new_secret = Some(NewSecret {
+            domain: "".to_string(),
+            password: password.clone(),
+        });
+
+        let mut app = app.clone();
+
+        app.state = ViewState::Home(self.clone());
+
+        app.mutable_app_state
+            .popups
+            .push(Box::new(InsertMaster::new()));
+
+        app
     }
 }
 
