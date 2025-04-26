@@ -226,13 +226,12 @@ impl Home {
         let (_, inner_buffer_height) = ScrollView::inner_buffer_bounding_box(area);
         let mut position = self.position.clone();
         if selected_secret > previous_selected_secret {
-            if selected_secret as u16 * DOMAIN_PASSWORD_LIST_ITEM_HEIGHT + 1
-                >= inner_buffer_height + position.offset_y
+            if self.index_offset(selected_secret as u16) >= inner_buffer_height + position.offset_y
             {
                 position.offset_y += DOMAIN_PASSWORD_LIST_ITEM_HEIGHT;
             }
         } else {
-            if selected_secret as u16 * DOMAIN_PASSWORD_LIST_ITEM_HEIGHT + 1 <= position.offset_y {
+            if self.index_offset(selected_secret as u16) <= position.offset_y {
                 position.offset_y -= DOMAIN_PASSWORD_LIST_ITEM_HEIGHT;
             }
         }
@@ -337,10 +336,10 @@ impl Home {
                 Style::default().fg(from(COLOR_WHITE).unwrap_or(Color::White))
             };
             let cursor = self.current_secret_cursor(3, cursor_offset, index as u16, style);
-            if y == 0 {
-                cursor.render(Rect::new(0, y + 1, cursor_offset, 3), buffer);
+            if index == 0 {
                 let separator = self.separator(buffer.area().width);
                 separator.render(Rect::new(cursor_offset, y, width, 1), buffer);
+                cursor.render(Rect::new(0, y + 1, cursor_offset, 3), buffer);
                 y += 1;
             } else {
                 cursor.render(Rect::new(0, y, cursor_offset, 3), buffer);
@@ -383,6 +382,14 @@ impl Home {
         let separator = self.separator(buffer.area().width);
         separator.render(Rect::new(cursor_offset, 1, self.width(), 1), buffer);
 
+        self.header_height()
+    }
+
+    /// Returns the header height
+    ///
+    /// # Returns
+    /// The header height
+    fn header_height(&self) -> u16 {
         3
     }
 
@@ -416,6 +423,14 @@ impl Home {
             buffer,
         );
 
+        self.legend_height()
+    }
+
+    /// Returns the legend height
+    ///
+    /// # Returns
+    /// The legend height
+    fn legend_height(&self) -> u16 {
         3
     }
 
@@ -430,7 +445,9 @@ impl Home {
             0,
             0,
             self.width() + cursor_offset,
-            (secrets_count as u16 * DOMAIN_PASSWORD_LIST_ITEM_HEIGHT) + 3,
+            (secrets_count as u16 * DOMAIN_PASSWORD_LIST_ITEM_HEIGHT + 1)
+                + self.header_height()
+                + self.legend_height(),
         );
         let mut buffer = Buffer::empty(rect);
         let y_offset_header = self.render_header(&mut buffer, rect, cursor_offset);
@@ -442,6 +459,17 @@ impl Home {
         );
 
         buffer
+    }
+
+    /// Returns the index offset
+    ///
+    /// # Arguments
+    /// * `index` - The index
+    ///
+    /// # Returns
+    /// The index offset
+    fn index_offset(&self, index: u16) -> u16 {
+        index * DOMAIN_PASSWORD_LIST_ITEM_HEIGHT + 1 + self.header_height() + self.legend_height()
     }
 }
 

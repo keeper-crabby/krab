@@ -50,7 +50,6 @@ impl ScrollView {
     /// # Returns
     /// The inner buffer bounding box
     pub fn inner_buffer_bounding_box(area: Rect) -> (u16, u16) {
-        let area = centered_absolute_rect(area, area.width - 4, area.height - 4);
         (area.width - 4, area.height - 3)
     }
 
