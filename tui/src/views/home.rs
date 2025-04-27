@@ -33,6 +33,7 @@ const MAX_ENTRY_LENGTH: u16 = 256;
 const DOMAIN_PASSWORD_MIDDLE_WIDTH: u16 = 3;
 const MIN_WIDTH: u16 = 128;
 const FILTER_INPUT_WIDTH: u16 = 64;
+const LEGEND_TEXT: &str = "j - down | k - up | h - left | l - right | q - quit | a - add | d - delete selected | e - edit selected | c - copy selected | f - filter | Enter - toggle secret";
 
 /// Represents the home view state
 ///
@@ -63,7 +64,7 @@ enum Operation {
 /// # Fields
 /// * `offset_x` - The x offset
 /// * `offset_y` - The y offset
-/// 
+///
 /// # Methods
 /// * `offset_x` - Returns the x offset
 /// * `offset_y` - Returns the y offset
@@ -140,7 +141,7 @@ struct NewSecret {
 }
 
 /// Represents a secret
-/// 
+///
 /// # Fields
 /// * `key` - The key
 /// * `value` - The value
@@ -258,11 +259,11 @@ impl Home {
     }
 
     /// Toggles the shown secret upwards to the root
-    /// 
+    ///
     /// # Arguments
     /// * `secret` - The secret
     /// * `is_shown` - The shown state
-    /// 
+    ///
     /// # Panics
     /// If the secret is out of bounds
     fn set_shown_upwards(&mut self, secret: String, is_shown: bool) {
@@ -281,11 +282,11 @@ impl Home {
     }
 
     /// Returns the largest prefix of the new value and the previous value
-    /// 
+    ///
     /// # Arguments
     /// * `previous_value` - The previous value
     /// * `new_value` - The new value
-    /// 
+    ///
     /// # Returns
     /// The largest prefix
     fn largest_prefix(&self, previous_value: &str, new_value: &str) -> String {
@@ -301,11 +302,11 @@ impl Home {
     }
 
     /// Filters the secrets
-    /// 
+    ///
     /// # Arguments
     /// * `previous_value` - The previous value
     /// * `new_value` - The new value
-    /// 
+    ///
     /// # Panics
     /// If the secrets are out of bounds
     fn fuzzy_filter(&mut self, previous_value: String, new_value: String) -> () {
@@ -539,7 +540,9 @@ impl Home {
     /// # Returns
     /// The width
     fn width(&self) -> u16 {
-        let width = self.secrets.last().unwrap().max_length() as u16 + RIGHT_MARGIN + LEFT_PADDING;
+        let width =
+            (self.secrets.last().unwrap().max_length() as u16 + RIGHT_MARGIN + LEFT_PADDING)
+                .max(LEGEND_TEXT.len() as u16 + 4);
         if width > MIN_WIDTH {
             width
         } else {
@@ -639,8 +642,7 @@ impl Home {
         cursor_offset: u16,
         y_offset: u16,
     ) -> u16 {
-        let text = " ".repeat(cursor_offset as usize) + 
-            "j - down | k - up | h - left | l - right | q - quit | a - add | d - delete selected | e - edit selected | c - copy selected | f - filter";
+        let text = " ".repeat(cursor_offset as usize) + LEGEND_TEXT;
         let legend = Text::styled(
             text,
             Style::default().fg(from(COLOR_WHITE).unwrap_or(Color::White)),
