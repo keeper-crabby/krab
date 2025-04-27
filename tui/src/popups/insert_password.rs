@@ -90,15 +90,13 @@ impl InsertPassword {
     /// # Returns
     /// A new `InsertPassword`
     pub fn new(domain: String) -> Self {
-        let cursor = 0;
-        let input_offset = 0;
         InsertPassword {
             domain,
             password: String::new(),
             state: InsertPasswordState::Password,
             exit_state: None,
-            cursor,
-            input_offset,
+            cursor : 0,
+            input_offset : 0,
         }
     }
 
@@ -124,15 +122,15 @@ impl InsertPassword {
     /// The minimum area of the popup
     pub fn min_area() -> (u16, u16) {
         (
-            InputConfig::width(),
+            InputConfig::default_width(),
             InputConfig::height() * 2 + ButtonConfig::height(),
         )
     }
 
-    /// Returns the maximum area of the popup
-    ///
+    /// Returns the input config for the popup
+    /// 
     /// # Returns
-    /// The maximum area of the popup
+    /// The input config for the popup
     fn generate_input_config(&self) -> InputConfig {
         InputConfig::new(
             self.state == InsertPasswordState::Password,
@@ -145,6 +143,7 @@ impl InsertPassword {
                 None
             },
             self.input_offset,
+            None,
         )
     }
 
@@ -171,7 +170,7 @@ impl InsertPassword {
 impl Popup for InsertPassword {
     fn render(&self, f: &mut Frame, _app: &Application, rect: Rect) {
         let height = InputConfig::height() * 2 + ButtonConfig::height();
-        let width = InputConfig::width();
+        let width = InputConfig::default_width();
         let rect = centered_absolute_rect(rect, width, height);
         let layout = Layout::default()
             .direction(Direction::Vertical)
@@ -195,10 +194,10 @@ impl Popup for InsertPassword {
         let mut buffer = f.buffer_mut();
 
         // - 4 is for the padding which InputConfig::width() adds, not the best approach but works for now
-        let domain = if self.domain.len() > InputConfig::width() as usize - 4 {
+        let domain = if self.domain.len() > InputConfig::default_width() as usize - 4 {
             self.domain
                 .chars()
-                .take(InputConfig::width() as usize - 3 - 4)
+                .take(InputConfig::default_width() as usize - 3 - 4)
                 .collect::<String>()
                 + "..."
         } else {
@@ -242,7 +241,7 @@ impl Popup for InsertPassword {
                     } else {
                         let config = self.generate_input_config();
                         let (value, cursor_position, input_offset) =
-                            Input::handle_key(key, &config, self.password());
+                            Input::handle_key(key, &config, self.password().as_str());
                         self.password = value;
                         self.cursor = cursor_position;
                         self.input_offset = input_offset;
@@ -251,7 +250,7 @@ impl Popup for InsertPassword {
                 _ => {
                     let config = self.generate_input_config();
                     let (value, cursor_position, input_offset) =
-                        Input::handle_key(key, &config, self.password());
+                        Input::handle_key(key, &config, self.password().as_str());
                     self.password = value;
                     self.cursor = cursor_position;
                     self.input_offset = input_offset;
@@ -299,7 +298,7 @@ impl Popup for InsertPassword {
     fn wrapper(&self, rect: Rect) -> Rect {
         centered_absolute_rect(
             rect,
-            InputConfig::width(),
+            InputConfig::default_width(),
             InputConfig::height() * 2 + ButtonConfig::height(),
         )
     }

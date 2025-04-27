@@ -9,7 +9,7 @@ use ratatui::{
 use crate::{from, COLOR_ORANGE, COLOR_WHITE};
 
 const INPUT_HEIGHT: u16 = 3;
-const MAX_INPUT_WIDTH: u16 = 32;
+const DEFAULT_INPUT_WIDTH: u16 = 32;
 const MAX_INPUT_LENGTH: u16 = 256;
 const PADDING: u16 = 2;
 
@@ -22,10 +22,12 @@ const PADDING: u16 = 2;
 /// * `title` - The title of the input
 /// * `cursor_position` - The cursor position of the input
 /// * `input_offset` - The input offset of the input
+/// * `width` - The width of the input
 ///
 /// # Methods
 /// * `new` - Creates a new `InputConfig`
 /// * `height` - Returns the height of the input
+/// * `default_width` - Returns the default width of the input
 /// * `width` - Returns the width of the input
 pub struct InputConfig {
     focused: bool,
@@ -34,6 +36,7 @@ pub struct InputConfig {
     title: String,
     cursor_position: Option<u16>,
     input_offset: u16,
+    width: Option<u16>,
 }
 
 /// Represents an input
@@ -63,6 +66,7 @@ impl InputConfig {
         title: String,
         cursor_position: Option<u16>,
         input_offset: u16,
+        width: Option<u16>,
     ) -> Self {
         Self {
             focused,
@@ -71,6 +75,7 @@ impl InputConfig {
             title,
             cursor_position,
             input_offset,
+            width,
         }
     }
 
@@ -86,8 +91,16 @@ impl InputConfig {
     ///
     /// # Returns
     /// The width of the input
-    pub fn width() -> u16 {
-        MAX_INPUT_WIDTH + 2 * PADDING
+    pub fn default_width() -> u16 {
+        DEFAULT_INPUT_WIDTH + 2 * PADDING
+    }
+
+    /// Returns the maximum length of the input
+    ///
+    /// # Returns
+    /// The maximum length of the input
+    pub fn width(&self) -> u16 {
+        self.width.unwrap_or(DEFAULT_INPUT_WIDTH) + 2 * PADDING
     }
 }
 
@@ -116,7 +129,7 @@ impl Input {
         };
 
         let mut text = text.split_off(config.input_offset as usize);
-        text.truncate(MAX_INPUT_WIDTH as usize);
+        text.truncate(config.width.unwrap_or(DEFAULT_INPUT_WIDTH) as usize);
 
         let text = if config.focused {
             let cursor_position =
@@ -140,9 +153,10 @@ impl Input {
                     .style(Style::default().fg(from(COLOR_WHITE).unwrap_or(Color::White))),
             ];
 
-            if first_part_len + second_part_len < MAX_INPUT_WIDTH {
+            if first_part_len + second_part_len < config.width.unwrap_or(DEFAULT_INPUT_WIDTH) {
                 line.push(Span::raw(" ".repeat(
-                    (MAX_INPUT_WIDTH - first_part_len - second_part_len) as usize,
+                    (config.width.unwrap_or(DEFAULT_INPUT_WIDTH) - first_part_len - second_part_len)
+                        as usize,
                 )));
             }
 
@@ -155,7 +169,9 @@ impl Input {
             Line::from(vec![
                 Span::raw(text)
                     .style(Style::default().fg(from(COLOR_WHITE).unwrap_or(Color::White))),
-                Span::raw(" ".repeat((MAX_INPUT_WIDTH - text_len) as usize)),
+                Span::raw(
+                    " ".repeat((config.width.unwrap_or(DEFAULT_INPUT_WIDTH) - text_len) as usize),
+                ),
             ])
             .centered()
         };
@@ -190,9 +206,9 @@ impl Input {
     pub fn handle_key(
         key: &KeyEvent,
         config: &InputConfig,
-        previous_value: String,
+        previous_value: &str,
     ) -> (String, u16, u16) {
-        let mut value = previous_value.clone();
+        let mut value = previous_value.to_string();
         let mut cursor_position = config.cursor_position.unwrap_or(value.len() as u16);
         let previous_cursor_position = config.cursor_position.unwrap_or(0);
         let mut input_offset = config.input_offset;
@@ -237,9 +253,9 @@ impl Input {
 
         if cursor_position != 0
             && previous_cursor_position == cursor_position - 1
-            && cursor_position == input_offset + MAX_INPUT_WIDTH
+            && cursor_position == input_offset + config.width.unwrap_or(DEFAULT_INPUT_WIDTH)
         {
-            input_offset = cursor_position - MAX_INPUT_WIDTH + 1;
+            input_offset = cursor_position - config.width.unwrap_or(DEFAULT_INPUT_WIDTH) + 1;
         } else if previous_cursor_position == cursor_position + 1 && cursor_position <= input_offset
         {
             if input_offset != 0 {
@@ -266,10 +282,10 @@ mod tests {
             "Test".to_string(),
             Some(4),
             0,
+            None,
         );
         let key = KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE);
-        let (value, cursor_position, input_offset) =
-            Input::handle_key(&key, &config, "test".to_string());
+        let (value, cursor_position, input_offset) = Input::handle_key(&key, &config, "test");
         assert_eq!(value, "testa".to_string());
         assert_eq!(cursor_position, 5);
         assert_eq!(input_offset, 0);
@@ -281,10 +297,18 @@ mod tests {
         for _ in 0..MAX_INPUT_LENGTH {
             value.push('a');
         }
-        let config = InputConfig::new(true, value.clone(), false, "Test".to_string(), Some(3), 0);
+        let config = InputConfig::new(
+            true,
+            value.clone(),
+            false,
+            "Test".to_string(),
+            Some(3),
+            0,
+            None,
+        );
         let key = KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE);
         let (value, cursor_position, input_offset) =
-            Input::handle_key(&key, &config, value.clone());
+            Input::handle_key(&key, &config, value.as_str());
         assert_eq!(value, value.clone());
         assert_eq!(cursor_position, 3);
         assert_eq!(input_offset, 0);
@@ -299,10 +323,10 @@ mod tests {
             "Test".to_string(),
             Some(4),
             0,
+            None,
         );
         let key = KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE);
-        let (value, cursor_position, input_offset) =
-            Input::handle_key(&key, &config, "test".to_string());
+        let (value, cursor_position, input_offset) = Input::handle_key(&key, &config, "test");
         assert_eq!(value, "tes".to_string());
         assert_eq!(cursor_position, 3);
         assert_eq!(input_offset, 0);
@@ -317,10 +341,10 @@ mod tests {
             "Test".to_string(),
             Some(1),
             0,
+            None,
         );
         let key = KeyEvent::new(KeyCode::Delete, KeyModifiers::NONE);
-        let (value, cursor_position, input_offset) =
-            Input::handle_key(&key, &config, "test".to_string());
+        let (value, cursor_position, input_offset) = Input::handle_key(&key, &config, "test");
         assert_eq!(value, "tst".to_string());
         assert_eq!(cursor_position, 1);
         assert_eq!(input_offset, 0);
@@ -335,10 +359,10 @@ mod tests {
             "Test".to_string(),
             Some(2),
             0,
+            None,
         );
         let key = KeyEvent::new(KeyCode::Left, KeyModifiers::NONE);
-        let (value, cursor_position, input_offset) =
-            Input::handle_key(&key, &config, "test".to_string());
+        let (value, cursor_position, input_offset) = Input::handle_key(&key, &config, "test");
         assert_eq!(value, "test".to_string());
         assert_eq!(cursor_position, 1);
         assert_eq!(input_offset, 0);
@@ -353,10 +377,10 @@ mod tests {
             "Test".to_string(),
             Some(2),
             0,
+            None,
         );
         let key = KeyEvent::new(KeyCode::Right, KeyModifiers::NONE);
-        let (value, cursor_position, input_offset) =
-            Input::handle_key(&key, &config, "test".to_string());
+        let (value, cursor_position, input_offset) = Input::handle_key(&key, &config, "test");
         assert_eq!(value, "test".to_string());
         assert_eq!(cursor_position, 3);
         assert_eq!(input_offset, 0);
@@ -374,14 +398,15 @@ mod tests {
             false,
             "Test".to_string(),
             Some(255),
-            255 - MAX_INPUT_WIDTH + 1,
+            255 - DEFAULT_INPUT_WIDTH + 1,
+            None,
         );
         let key = KeyEvent::new(KeyCode::Right, KeyModifiers::NONE);
         let (value, cursor_position, input_offset) =
-            Input::handle_key(&key, &config, value.clone());
+            Input::handle_key(&key, &config, value.as_str());
         assert_eq!(value, value.clone());
         assert_eq!(cursor_position, 255);
-        assert_eq!(input_offset, 255 - MAX_INPUT_WIDTH + 1);
+        assert_eq!(input_offset, 255 - DEFAULT_INPUT_WIDTH + 1);
     }
 
     #[test]
@@ -393,10 +418,11 @@ mod tests {
             "Test".to_string(),
             Some(31),
             0,
+            None,
         );
         let key = KeyEvent::new(KeyCode::Char('1'), KeyModifiers::NONE);
         let (value, cursor_position, input_offset) =
-            Input::handle_key(&key, &config, "0123456789012345678901234567890".to_string());
+            Input::handle_key(&key, &config, "0123456789012345678901234567890");
         assert_eq!(value, "01234567890123456789012345678901".to_string());
         assert_eq!(cursor_position, 32);
         assert_eq!(input_offset, 1);
@@ -411,12 +437,13 @@ mod tests {
             "Test".to_string(),
             Some(29),
             28,
+            None,
         );
         let key = KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE);
         let (value, cursor_position, input_offset) = Input::handle_key(
             &key,
             &config,
-            "0123456789012345678901234567890123456789012345678901234567890".to_string(),
+            "0123456789012345678901234567890123456789012345678901234567890",
         );
         assert_eq!(
             value,

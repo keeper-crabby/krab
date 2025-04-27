@@ -151,6 +151,7 @@ impl Register {
                     .get(&RegisterInput::Username)
                     .unwrap()
                     .clone(),
+                    None,
             ),
             RegisterInput::MasterPassword => InputConfig::new(
                 self.state == RegisterState::MasterPassword,
@@ -171,6 +172,7 @@ impl Register {
                     .get(&RegisterInput::MasterPassword)
                     .unwrap()
                     .clone(),
+                    None,
             ),
             RegisterInput::ConfirmMasterPassword => InputConfig::new(
                 self.state == RegisterState::ConfirmMasterPassword,
@@ -191,6 +193,7 @@ impl Register {
                     .get(&RegisterInput::ConfirmMasterPassword)
                     .unwrap()
                     .clone(),
+                    None,
             ),
         }
     }
@@ -217,7 +220,7 @@ impl Register {
 impl View for Register {
     fn render(&self, f: &mut Frame, _app: &Application, rect: Rect) {
         let height = 3 * InputConfig::height() + ButtonConfig::height();
-        let width = InputConfig::width();
+        let width = InputConfig::default_width();
         let rect = centered_absolute_rect(rect, width, height);
         let layout = Layout::default()
             .direction(Direction::Vertical)
@@ -264,7 +267,7 @@ impl View for Register {
                 _ => {
                     let config = self.generate_input_config(RegisterInput::Username);
                     let (value, cursor_position, input_offset) =
-                        Input::handle_key(key, &config, self.username.clone());
+                        Input::handle_key(key, &config, self.username.as_str());
                     self.username = value;
                     self.cursors
                         .insert(RegisterInput::Username, cursor_position);
@@ -282,7 +285,7 @@ impl View for Register {
                 _ => {
                     let config = self.generate_input_config(RegisterInput::MasterPassword);
                     let (value, cursor_position, input_offset) =
-                        Input::handle_key(key, &config, self.master_password.clone());
+                        Input::handle_key(key, &config, self.master_password.as_str());
                     self.master_password = value;
                     self.cursors
                         .insert(RegisterInput::MasterPassword, cursor_position);
@@ -300,7 +303,7 @@ impl View for Register {
                 _ => {
                     let config = self.generate_input_config(RegisterInput::ConfirmMasterPassword);
                     let (value, cursor_position, input_offset) =
-                        Input::handle_key(key, &config, self.confirm_master_password.clone());
+                        Input::handle_key(key, &config, self.confirm_master_password.as_str());
                     self.confirm_master_password = value;
                     self.cursors
                         .insert(RegisterInput::ConfirmMasterPassword, cursor_position);
@@ -413,7 +416,7 @@ impl View for Register {
 
     fn min_area(&self) -> (u16, u16) {
         let height = 3 * InputConfig::height() + ButtonConfig::height();
-        let width = InputConfig::width();
+        let width = InputConfig::default_width();
         (width * 3, height * 3)
     }
 }

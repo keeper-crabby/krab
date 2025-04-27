@@ -116,7 +116,7 @@ impl InsertMaster {
     /// # Returns
     /// The minimum area of the popup
     pub fn min_area() -> (u16, u16) {
-        (InputConfig::width(), InputConfig::height() + ButtonConfig::height())
+        (InputConfig::default_width(), InputConfig::height() + ButtonConfig::height())
     }
 
     /// Returns the maximum area of the popup
@@ -135,6 +135,7 @@ impl InsertMaster {
                 None
             },
             self.input_offset,
+            None,
         )
     }
 
@@ -161,7 +162,7 @@ impl InsertMaster {
 impl Popup for InsertMaster {
     fn render(&self, f: &mut Frame, _app: &Application, rect: Rect) {
         let height = InputConfig::height() + ButtonConfig::height();
-        let width = InputConfig::width();
+        let width = InputConfig::default_width();
         let rect = centered_absolute_rect(rect, width, height);
         let layout = Layout::default()
             .direction(Direction::Vertical)
@@ -204,7 +205,7 @@ impl Popup for InsertMaster {
                 _ => {
                     let config = self.generate_input_config();
                     let (value, cursor_position, input_offset) =
-                        Input::handle_key(key, &config, self.master());
+                        Input::handle_key(key, &config, self.master().as_str());
                     self.master = value;
                     self.cursor = cursor_position;
                     self.input_offset = input_offset;
@@ -252,7 +253,7 @@ impl Popup for InsertMaster {
     fn wrapper(&self, rect: Rect) -> Rect {
         centered_absolute_rect(
             rect,
-            InputConfig::width(),
+            InputConfig::default_width(),
             InputConfig::height() + ButtonConfig::height(),
         )
     }

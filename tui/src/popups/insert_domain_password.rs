@@ -149,7 +149,7 @@ impl InsertDomainPassword {
     /// A tuple representing the minimum area of the popup
     pub fn min_area() -> (u16, u16) {
         let height = 2 * InputConfig::height() + ButtonConfig::height();
-        let width = InputConfig::width();
+        let width = InputConfig::default_width();
         (width, height)
     }
 
@@ -181,6 +181,7 @@ impl InsertDomainPassword {
                     .get(&DomainPasswordInput::Domain)
                     .unwrap()
                     .clone(),
+                None,
             ),
             DomainPasswordInput::Password => InputConfig::new(
                 self.state == InsertDomainPasswordState::Password,
@@ -201,6 +202,7 @@ impl InsertDomainPassword {
                     .get(&DomainPasswordInput::Password)
                     .unwrap()
                     .clone(),
+                None,
             ),
         }
     }
@@ -229,7 +231,7 @@ impl InsertDomainPassword {
 impl Popup for InsertDomainPassword {
     fn render(&self, f: &mut Frame, _app: &Application, rect: Rect) {
         let height = 2 * InputConfig::height() + ButtonConfig::height();
-        let width = InputConfig::width();
+        let width = InputConfig::default_width();
         let rect = centered_absolute_rect(rect, width, height);
         let layout = Layout::default()
             .direction(Direction::Vertical)
@@ -278,7 +280,7 @@ impl Popup for InsertDomainPassword {
                 _ => {
                     let config = self.generate_input_config(DomainPasswordInput::Domain);
                     let (value, cursor_position, input_offset) =
-                        Input::handle_key(key, &config, self.domain());
+                        Input::handle_key(key, &config, self.domain().as_str());
                     self.domain = value;
                     self.cursors
                         .insert(DomainPasswordInput::Domain, cursor_position);
@@ -295,7 +297,7 @@ impl Popup for InsertDomainPassword {
                     } else {
                         let config = self.generate_input_config(DomainPasswordInput::Password);
                         let (value, cursor_position, input_offset) =
-                            Input::handle_key(key, &config, self.password());
+                            Input::handle_key(key, &config, self.password().as_str());
                         self.password = value;
                         self.cursors
                             .insert(DomainPasswordInput::Password, cursor_position);
@@ -312,7 +314,7 @@ impl Popup for InsertDomainPassword {
                 _ => {
                     let config = self.generate_input_config(DomainPasswordInput::Password);
                     let (value, cursor_position, input_offset) =
-                        Input::handle_key(key, &config, self.password());
+                        Input::handle_key(key, &config, self.password().as_str());
                     self.password = value;
                     self.cursors
                         .insert(DomainPasswordInput::Password, cursor_position);
@@ -368,7 +370,7 @@ impl Popup for InsertDomainPassword {
     fn wrapper(&self, rect: Rect) -> Rect {
         centered_absolute_rect(
             rect,
-            InputConfig::width(),
+            InputConfig::default_width(),
             InputConfig::height() * 2 + ButtonConfig::height(),
         )
     }

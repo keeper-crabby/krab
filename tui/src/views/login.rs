@@ -159,6 +159,7 @@ impl Login {
                     .get(&LoginInput::Username)
                     .unwrap()
                     .clone(),
+                    None,
             ),
             LoginInput::MasterPassword => InputConfig::new(
                 self.state == LoginState::MasterPassword,
@@ -179,6 +180,7 @@ impl Login {
                     .get(&LoginInput::MasterPassword)
                     .unwrap()
                     .clone(),
+                    None,
             ),
         }
     }
@@ -205,7 +207,7 @@ impl Login {
 impl View for Login {
     fn render(&self, f: &mut Frame, _app: &Application, rect: Rect) {
         let height = 2 * InputConfig::height() + ButtonConfig::height();
-        let width = InputConfig::width();
+        let width = InputConfig::default_width();
         let rect = centered_absolute_rect(rect, width, height);
         let layout = Layout::default()
             .direction(Direction::Vertical)
@@ -248,7 +250,7 @@ impl View for Login {
                 _ => {
                     let config = self.generate_input_config(LoginInput::Username);
                     let (value, cursor_position, input_offset) =
-                        Input::handle_key(key, &config, self.username.clone());
+                        Input::handle_key(key, &config, self.username.as_str());
                     self.username = value;
                     self.cursors.insert(LoginInput::Username, cursor_position);
                     self.input_offsets
@@ -265,7 +267,7 @@ impl View for Login {
                 _ => {
                     let config = self.generate_input_config(LoginInput::MasterPassword);
                     let (value, cursor_position, input_offset) =
-                        Input::handle_key(key, &config, self.master_password.clone());
+                        Input::handle_key(key, &config, self.master_password.as_str());
                     self.master_password = value;
                     self.cursors
                         .insert(LoginInput::MasterPassword, cursor_position);
@@ -331,7 +333,7 @@ impl View for Login {
 
     fn min_area(&self) -> (u16, u16) {
         let height = 2 * InputConfig::height() + ButtonConfig::height();
-        let width = InputConfig::width();
+        let width = InputConfig::default_width();
         (width * 3, height * 3)
     }
 }

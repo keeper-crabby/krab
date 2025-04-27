@@ -36,7 +36,7 @@ impl ScrollView {
     ) -> bool {
         // - 2 for the borders, not the best approach but works for now
         let area = centered_absolute_rect(area, area.width - 2, area.height - 2);
-        if position.offset_x + area.width - 4 > buffer_to_render.area().width {
+        if position.offset_x() + area.width - 4 > buffer_to_render.area().width {
             return true;
         }
         false
@@ -146,7 +146,7 @@ impl ScrollView {
         }
 
         if scrollbar_x_size < 1.0 {
-            let scrollbar_x_position_start = (position.offset_x as f32
+            let scrollbar_x_position_start = (position.offset_x() as f32
                 / buffer_to_render_width as f32)
                 * (area.width as f32 - 2.0) as f32
                 + area.x as f32;
@@ -161,7 +161,7 @@ impl ScrollView {
         }
 
         if scrollbar_y_size < 1.0 {
-            let scrollbar_y_position_start = (position.offset_y as f32
+            let scrollbar_y_position_start = (position.offset_y() as f32
                 / buffer_to_render_height as f32)
                 * (area.height as f32 - 1.0) as f32
                 + area.y as f32;
@@ -204,16 +204,16 @@ impl ScrollView {
         for i in 0 + area.x..area.width + area.x {
             for j in 0 + area.y..area.height + area.y {
                 let cell = buffer_to_render.cell(RatatuiPosition {
-                    x: i - area.x + position.offset_x,
-                    y: j - area.y + position.offset_y,
+                    x: i - area.x + position.offset_x(),
+                    y: j - area.y + position.offset_y(),
                 });
                 if cell.is_none() || i >= area.width + area.x || j >= area.height + area.y {
                     continue;
                 }
                 buffer[(i, j)] = buffer_to_render
                     .cell(RatatuiPosition {
-                        x: i - area.x + position.offset_x,
-                        y: j - area.y + position.offset_y,
+                        x: i - area.x + position.offset_x(),
+                        y: j - area.y + position.offset_y(),
                     })
                     .unwrap()
                     .clone();

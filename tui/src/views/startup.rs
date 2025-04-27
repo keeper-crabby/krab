@@ -92,7 +92,7 @@ impl StartUp {
 impl View for StartUp {
     fn render(&self, f: &mut Frame, _app: &Application, rect: Rect) {
         let height = 3 * ButtonConfig::height();
-        let width = InputConfig::width();
+        let width = InputConfig::default_width();
         let rect = centered_absolute_rect(rect, width, height);
         let layout = Layout::default()
             .direction(Direction::Vertical)
@@ -172,6 +172,6 @@ impl View for StartUp {
     }
 
     fn min_area(&self) -> (u16, u16) {
-        (InputConfig::width() * 3, 3 * ButtonConfig::height() * 3)
+        (InputConfig::default_width() * 3, 3 * ButtonConfig::height() * 3)
     }
 }

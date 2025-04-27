@@ -1205,7 +1205,6 @@ mod tests {
         )
         .unwrap();
         let records = records.records();
-        println!("{:?}", records);
         let modified_record = records.iter().find(|r| r.0 == user_data.domain);
         let modified_record = match modified_record {
             Some(record) => record,
