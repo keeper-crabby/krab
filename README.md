@@ -112,19 +112,6 @@ Ensure you have the Rust toolchain installed (`rustup`).
 
 ## 💾 Data Storage
 
-*   Your encrypted password database is stored as a single file.
-*   Krab uses [directories](https://crates.io/crates/directories) library to store the data across Windows, macOS and Linux.
-The library provides multiple options for choosing the directory which is needed.
-Krab uses the **ProjectDirs** directory provided by the library. **Directories** then handles the cross platform convrsion.
-For more infomration check out the library page but for short:
-    *   **Linux:** `$XDG_CONFIG_HOME/krab` or `~/.config/krab`
-    *   **macOS:** `~/Library/Application Support/krab`
-    *   **Windows:** `%APPDATA%\krab\config`
-    *   *(Verify this path based on the `directories` crate usage)*
-*   **Backup:** It is crucial to **back up this encrypted database file** regularly to a secure location (e.g., an encrypted USB drive, secure cloud storage). Losing this file means losing your passwords.
-
-## 💾 Data Storage
-
 Krab securely stores each user's encrypted secrets in a dedicated database file. The location of the directory containing these files follows standard conventions for each operating system, determined using the [`directories`](https://crates.io/crates/directories) crate.
 
 *   **Mechanism:** Krab uses `directories::ProjectDirs::from("", "", "krab")` to identify the appropriate project-specific directory. Using empty strings for the `qualifier` and `organization` simplifies the generated path structure.
