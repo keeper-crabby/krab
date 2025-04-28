@@ -151,7 +151,7 @@ impl Register {
                     .get(&RegisterInput::Username)
                     .unwrap()
                     .clone(),
-                    None,
+                None,
             ),
             RegisterInput::MasterPassword => InputConfig::new(
                 self.state == RegisterState::MasterPassword,
@@ -172,7 +172,7 @@ impl Register {
                     .get(&RegisterInput::MasterPassword)
                     .unwrap()
                     .clone(),
-                    None,
+                None,
             ),
             RegisterInput::ConfirmMasterPassword => InputConfig::new(
                 self.state == RegisterState::ConfirmMasterPassword,
@@ -193,7 +193,7 @@ impl Register {
                     .get(&RegisterInput::ConfirmMasterPassword)
                     .unwrap()
                     .clone(),
-                    None,
+                None,
             ),
         }
     }
@@ -264,6 +264,10 @@ impl View for Register {
                 KeyCode::Up => {
                     self.state = RegisterState::Confirm;
                 }
+                KeyCode::Esc => {
+                    app.state = ViewState::StartUp(StartUp::new());
+                    change_state = true;
+                }
                 _ => {
                     let config = self.generate_input_config(RegisterInput::Username);
                     let (value, cursor_position, input_offset) =
@@ -281,6 +285,10 @@ impl View for Register {
                 }
                 KeyCode::Up => {
                     self.state = RegisterState::Username;
+                }
+                KeyCode::Esc => {
+                    app.state = ViewState::StartUp(StartUp::new());
+                    change_state = true;
                 }
                 _ => {
                     let config = self.generate_input_config(RegisterInput::MasterPassword);
@@ -300,6 +308,10 @@ impl View for Register {
                 KeyCode::Up => {
                     self.state = RegisterState::MasterPassword;
                 }
+                KeyCode::Esc => {
+                    app.state = ViewState::StartUp(StartUp::new());
+                    change_state = true;
+                }
                 _ => {
                     let config = self.generate_input_config(RegisterInput::ConfirmMasterPassword);
                     let (value, cursor_position, input_offset) =
@@ -312,17 +324,21 @@ impl View for Register {
                 }
             },
             RegisterState::Quit => match key.code {
-                KeyCode::Enter => {
+                KeyCode::Enter | KeyCode::Esc | KeyCode::Char('q') => {
                     app.state = ViewState::StartUp(StartUp::new());
                     change_state = true;
                 }
-                KeyCode::Right | KeyCode::Left | KeyCode::Tab => {
+                KeyCode::Right
+                | KeyCode::Left
+                | KeyCode::Tab
+                | KeyCode::Char('h')
+                | KeyCode::Char('l') => {
                     self.state = RegisterState::Confirm;
                 }
-                KeyCode::Up => {
+                KeyCode::Up | KeyCode::Char('k') => {
                     self.state = RegisterState::ConfirmMasterPassword;
                 }
-                KeyCode::Down => {
+                KeyCode::Down | KeyCode::Char('j') => {
                     self.state = RegisterState::Username;
                 }
                 _ => {}
@@ -334,14 +350,18 @@ impl View for Register {
                         .push(Box::new(InsertDomainPassword::new()));
                     change_state = true;
                 }
-                KeyCode::Right | KeyCode::Left => {
+                KeyCode::Right | KeyCode::Left | KeyCode::Char('h') | KeyCode::Char('l') => {
                     self.state = RegisterState::Quit;
                 }
-                KeyCode::Up => {
+                KeyCode::Up | KeyCode::Char('k') => {
                     self.state = RegisterState::ConfirmMasterPassword;
                 }
-                KeyCode::Down | KeyCode::Tab => {
+                KeyCode::Down | KeyCode::Tab | KeyCode::Char('j') => {
                     self.state = RegisterState::Username;
+                }
+                KeyCode::Esc | KeyCode::Char('q') => {
+                    app.state = ViewState::StartUp(StartUp::new());
+                    change_state = true;
                 }
                 _ => {}
             },

@@ -277,6 +277,11 @@ impl Popup for InsertDomainPassword {
                 KeyCode::Down | KeyCode::Tab | KeyCode::Enter => {
                     self.state = InsertDomainPasswordState::Password;
                 }
+                KeyCode::Esc => {
+                    app.mutable_app_state.popups.pop();
+                    self.exit_state = Some(InsertDomainPasswordExitState::Quit);
+                    poped = true;
+                }
                 _ => {
                     let config = self.generate_input_config(DomainPasswordInput::Domain);
                     let (value, cursor_position, input_offset) =
@@ -311,6 +316,11 @@ impl Popup for InsertDomainPassword {
                 KeyCode::Down | KeyCode::Tab | KeyCode::Enter => {
                     self.state = InsertDomainPasswordState::Quit;
                 }
+                KeyCode::Esc => {
+                    app.mutable_app_state.popups.pop();
+                    self.exit_state = Some(InsertDomainPasswordExitState::Quit);
+                    poped = true;
+                }
                 _ => {
                     let config = self.generate_input_config(DomainPasswordInput::Password);
                     let (value, cursor_position, input_offset) =
@@ -323,18 +333,22 @@ impl Popup for InsertDomainPassword {
                 }
             },
             InsertDomainPasswordState::Quit => match key.code {
-                KeyCode::Enter => {
+                KeyCode::Enter | KeyCode::Esc | KeyCode::Char('q') => {
                     app.mutable_app_state.popups.pop();
                     self.exit_state = Some(InsertDomainPasswordExitState::Quit);
                     poped = true;
                 }
-                KeyCode::Up => {
+                KeyCode::Up | KeyCode::Char('k') => {
                     self.state = InsertDomainPasswordState::Password;
                 }
-                KeyCode::Right | KeyCode::Tab | KeyCode::Left => {
+                KeyCode::Right
+                | KeyCode::Tab
+                | KeyCode::Left
+                | KeyCode::Char('h')
+                | KeyCode::Char('l') => {
                     self.state = InsertDomainPasswordState::Confirm;
                 }
-                KeyCode::Down => {
+                KeyCode::Down | KeyCode::Char('j') => {
                     self.state = InsertDomainPasswordState::Domain;
                 }
                 _ => {}
@@ -345,14 +359,19 @@ impl Popup for InsertDomainPassword {
                     self.exit_state = Some(InsertDomainPasswordExitState::Confirm);
                     poped = true;
                 }
-                KeyCode::Left | KeyCode::Right => {
+                KeyCode::Left | KeyCode::Right | KeyCode::Char('h') | KeyCode::Char('l') => {
                     self.state = InsertDomainPasswordState::Quit;
                 }
-                KeyCode::Down | KeyCode::Tab => {
+                KeyCode::Down | KeyCode::Tab | KeyCode::Char('j') => {
                     self.state = InsertDomainPasswordState::Domain;
                 }
-                KeyCode::Up => {
+                KeyCode::Up | KeyCode::Char('k') => {
                     self.state = InsertDomainPasswordState::Password;
+                }
+                KeyCode::Esc | KeyCode::Char('q') => {
+                    app.mutable_app_state.popups.pop();
+                    self.exit_state = Some(InsertDomainPasswordExitState::Quit);
+                    poped = true;
                 }
                 _ => {}
             },

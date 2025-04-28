@@ -247,6 +247,11 @@ impl Popup for InsertPassword {
                         self.input_offset = input_offset;
                     }
                 }
+                KeyCode::Esc => {
+                    app.mutable_app_state.popups.pop();
+                    self.exit_state = Some(InsertPasswordExitState::Quit);
+                    poped = true;
+                }
                 _ => {
                     let config = self.generate_input_config();
                     let (value, cursor_position, input_offset) =
@@ -257,15 +262,15 @@ impl Popup for InsertPassword {
                 }
             },
             InsertPasswordState::Quit => match key.code {
-                KeyCode::Enter => {
+                KeyCode::Enter | KeyCode::Esc | KeyCode::Char('q') => {
                     app.mutable_app_state.popups.pop();
                     self.exit_state = Some(InsertPasswordExitState::Quit);
                     poped = true;
                 }
-                KeyCode::Up | KeyCode::Down => {
+                KeyCode::Up | KeyCode::Down | KeyCode::Char('k') | KeyCode::Char('j') => {
                     self.state = InsertPasswordState::Password;
                 }
-                KeyCode::Right | KeyCode::Tab | KeyCode::Left => {
+                KeyCode::Right | KeyCode::Tab | KeyCode::Left | KeyCode::Char('h') | KeyCode::Char('l') => {
                     self.state = InsertPasswordState::Confirm;
                 }
                 _ => {}
@@ -276,11 +281,16 @@ impl Popup for InsertPassword {
                     self.exit_state = Some(InsertPasswordExitState::Confirm);
                     poped = true;
                 }
-                KeyCode::Left | KeyCode::Right => {
+                KeyCode::Left | KeyCode::Right | KeyCode::Char('h') | KeyCode::Char('l') => {
                     self.state = InsertPasswordState::Quit;
                 }
-                KeyCode::Down | KeyCode::Tab | KeyCode::Up => {
+                KeyCode::Down | KeyCode::Tab | KeyCode::Up | KeyCode::Char('j') | KeyCode::Char('k') => {
                     self.state = InsertPasswordState::Password;
+                }
+                KeyCode::Esc | KeyCode::Char('q') => {
+                    app.mutable_app_state.popups.pop();
+                    self.exit_state = Some(InsertPasswordExitState::Quit);
+                    poped = true;
                 }
                 _ => {}
             },

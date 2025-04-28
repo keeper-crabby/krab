@@ -112,15 +112,18 @@ impl InsertMaster {
     }
 
     /// Returns the minimum area of the popup
-    /// 
+    ///
     /// # Returns
     /// The minimum area of the popup
     pub fn min_area() -> (u16, u16) {
-        (InputConfig::default_width(), InputConfig::height() + ButtonConfig::height())
+        (
+            InputConfig::default_width(),
+            InputConfig::height() + ButtonConfig::height(),
+        )
     }
 
     /// Returns the maximum area of the popup
-    /// 
+    ///
     /// # Returns
     /// The maximum area of the popup
     fn generate_input_config(&self) -> InputConfig {
@@ -140,10 +143,10 @@ impl InsertMaster {
     }
 
     /// Returns the button config for the given input
-    /// 
+    ///
     /// # Arguments
     /// * `input` - The input
-    /// 
+    ///
     /// # Returns
     /// The button config for the given input
     fn generate_button_config(&self, input: MasterPasswordButton) -> ButtonConfig {
@@ -202,6 +205,11 @@ impl Popup for InsertMaster {
                 KeyCode::Down | KeyCode::Tab | KeyCode::Enter | KeyCode::Up => {
                     self.state = InsertMasterState::Quit;
                 }
+                KeyCode::Esc => {
+                    app.mutable_app_state.popups.pop();
+                    self.exit_state = Some(InsertMasterExitState::Quit);
+                    poped = true;
+                }
                 _ => {
                     let config = self.generate_input_config();
                     let (value, cursor_position, input_offset) =
@@ -212,15 +220,19 @@ impl Popup for InsertMaster {
                 }
             },
             InsertMasterState::Quit => match key.code {
-                KeyCode::Enter => {
+                KeyCode::Enter | KeyCode::Esc | KeyCode::Char('q') => {
                     app.mutable_app_state.popups.pop();
                     self.exit_state = Some(InsertMasterExitState::Quit);
                     poped = true;
                 }
-                KeyCode::Up | KeyCode::Down => {
+                KeyCode::Up | KeyCode::Down | KeyCode::Char('k') | KeyCode::Char('j') => {
                     self.state = InsertMasterState::Master;
                 }
-                KeyCode::Right | KeyCode::Tab | KeyCode::Left => {
+                KeyCode::Right
+                | KeyCode::Tab
+                | KeyCode::Left
+                | KeyCode::Char('h')
+                | KeyCode::Char('l') => {
                     self.state = InsertMasterState::Confirm;
                 }
                 _ => {}
@@ -231,11 +243,20 @@ impl Popup for InsertMaster {
                     self.exit_state = Some(InsertMasterExitState::Confirm);
                     poped = true;
                 }
-                KeyCode::Left | KeyCode::Right => {
+                KeyCode::Left | KeyCode::Right | KeyCode::Char('h') | KeyCode::Char('l') => {
                     self.state = InsertMasterState::Quit;
                 }
-                KeyCode::Down | KeyCode::Tab | KeyCode::Up => {
+                KeyCode::Down
+                | KeyCode::Tab
+                | KeyCode::Up
+                | KeyCode::Char('j')
+                | KeyCode::Char('k') => {
                     self.state = InsertMasterState::Master;
+                }
+                KeyCode::Esc | KeyCode::Char('q') => {
+                    app.mutable_app_state.popups.pop();
+                    self.exit_state = Some(InsertMasterExitState::Quit);
+                    poped = true;
                 }
                 _ => {}
             },

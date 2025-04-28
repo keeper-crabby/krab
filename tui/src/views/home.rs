@@ -732,22 +732,22 @@ impl View for Home {
 
         match self.state {
             HomeViewState::Normal => match key.code {
-                KeyCode::Char('q') => {
+                KeyCode::Char('q') | KeyCode::Esc => {
                     app.state = ViewState::Login(Login::new(&app.immutable_app_state.db_path));
                     change_state = true;
                 }
-                KeyCode::Char('j') => {
+                KeyCode::Char('j') | KeyCode::Down => {
                     self.down(app.immutable_app_state.rect.unwrap());
                 }
-                KeyCode::Char('k') => {
+                KeyCode::Char('k') | KeyCode::Up => {
                     self.up(app.immutable_app_state.rect.unwrap());
                 }
-                KeyCode::Char('h') => {
+                KeyCode::Char('h') | KeyCode::Left => {
                     if self.position.offset_x != 0 {
                         self.position.offset_x -= 1;
                     }
                 }
-                KeyCode::Char('l') => {
+                KeyCode::Char('l') | KeyCode::Right => {
                     if !ScrollView::check_if_width_out_of_bounds(
                         &self.position,
                         &self.buffer_to_render(),

@@ -117,11 +117,6 @@ impl View for StartUp {
         let mut app = app.clone();
         let mut change_state = false;
 
-        if key.code == KeyCode::Char('q') {
-            app.mutable_app_state.running = false;
-            return app;
-        }
-
         match self.state {
             StartUpState::Login => match key.code {
                 KeyCode::Enter => {
@@ -133,6 +128,9 @@ impl View for StartUp {
                 }
                 KeyCode::Up | KeyCode::Char('k') => {
                     self.state = StartUpState::Quit;
+                }
+                KeyCode::Esc | KeyCode::Char('q') => {
+                    app.mutable_app_state.running = false;
                 }
                 _ => {}
             },
@@ -148,10 +146,13 @@ impl View for StartUp {
                 KeyCode::Up | KeyCode::Char('k') => {
                     self.state = StartUpState::Login;
                 }
+                KeyCode::Esc | KeyCode::Char('q') => {
+                    app.mutable_app_state.running = false;
+                }
                 _ => {}
             },
             StartUpState::Quit => match key.code {
-                KeyCode::Enter => {
+                KeyCode::Enter | KeyCode::Esc | KeyCode::Char('q') => {
                     app.mutable_app_state.running = false;
                 }
                 KeyCode::Down | KeyCode::Tab | KeyCode::Char('j') => {
@@ -172,6 +173,9 @@ impl View for StartUp {
     }
 
     fn min_area(&self) -> (u16, u16) {
-        (InputConfig::default_width() * 3, 3 * ButtonConfig::height() * 3)
+        (
+            InputConfig::default_width() * 3,
+            3 * ButtonConfig::height() * 3,
+        )
     }
 }

@@ -159,7 +159,7 @@ impl Login {
                     .get(&LoginInput::Username)
                     .unwrap()
                     .clone(),
-                    None,
+                None,
             ),
             LoginInput::MasterPassword => InputConfig::new(
                 self.state == LoginState::MasterPassword,
@@ -180,7 +180,7 @@ impl Login {
                     .get(&LoginInput::MasterPassword)
                     .unwrap()
                     .clone(),
-                    None,
+                None,
             ),
         }
     }
@@ -247,6 +247,10 @@ impl View for Login {
                 KeyCode::Up => {
                     self.state = LoginState::Confirm;
                 }
+                KeyCode::Esc => {
+                    app.state = ViewState::StartUp(StartUp::new());
+                    change_state = true;
+                }
                 _ => {
                     let config = self.generate_input_config(LoginInput::Username);
                     let (value, cursor_position, input_offset) =
@@ -264,6 +268,10 @@ impl View for Login {
                 KeyCode::Up => {
                     self.state = LoginState::Username;
                 }
+                KeyCode::Esc => {
+                    app.state = ViewState::StartUp(StartUp::new());
+                    change_state = true;
+                }
                 _ => {
                     let config = self.generate_input_config(LoginInput::MasterPassword);
                     let (value, cursor_position, input_offset) =
@@ -276,17 +284,21 @@ impl View for Login {
                 }
             },
             LoginState::Quit => match key.code {
-                KeyCode::Enter => {
+                KeyCode::Enter | KeyCode::Esc | KeyCode::Char('q') => {
                     app.state = ViewState::StartUp(StartUp::new());
                     change_state = true;
                 }
-                KeyCode::Right | KeyCode::Left | KeyCode::Tab => {
+                KeyCode::Right
+                | KeyCode::Left
+                | KeyCode::Tab
+                | KeyCode::Char('l')
+                | KeyCode::Char('h') => {
                     self.state = LoginState::Confirm;
                 }
-                KeyCode::Up => {
+                KeyCode::Up | KeyCode::Char('k') => {
                     self.state = LoginState::MasterPassword;
                 }
-                KeyCode::Down => {
+                KeyCode::Down | KeyCode::Char('j') => {
                     self.state = LoginState::Username;
                 }
                 _ => {}
@@ -311,14 +323,18 @@ impl View for Login {
                         }
                     }
                 }
-                KeyCode::Right | KeyCode::Left => {
+                KeyCode::Right | KeyCode::Left | KeyCode::Char('l') | KeyCode::Char('h') => {
                     self.state = LoginState::Quit;
                 }
-                KeyCode::Up => {
+                KeyCode::Up | KeyCode::Char('k') => {
                     self.state = LoginState::MasterPassword;
                 }
-                KeyCode::Down | KeyCode::Tab => {
+                KeyCode::Down | KeyCode::Tab | KeyCode::Char('j') => {
                     self.state = LoginState::Username;
+                }
+                KeyCode::Esc | KeyCode::Char('q') => {
+                    app.state = ViewState::StartUp(StartUp::new());
+                    change_state = true;
                 }
                 _ => {}
             },

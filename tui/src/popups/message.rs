@@ -41,7 +41,7 @@ impl MessagePopup {
     }
 
     /// Returns the minimum area of the popup
-    /// 
+    ///
     /// # Returns
     /// The minimum area of the popup
     pub fn min_area() -> (u16, u16) {
