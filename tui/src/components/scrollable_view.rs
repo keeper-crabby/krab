@@ -127,7 +127,7 @@ impl ScrollView {
                     .set_style(Style::default().fg(from(COLOR_ORANGE).unwrap_or(Color::Yellow)))
                     .clone();
             } else {
-                buffer[(scrollbar_x_end - 2, i)] = Cell::new("▕▏")
+                buffer[(scrollbar_x_end - 2, i)] = Cell::new("║║")
                     .set_style(Style::default().fg(from(COLOR_WHITE).unwrap_or(Color::White)))
                     .clone();
             }
