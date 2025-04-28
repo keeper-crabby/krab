@@ -14,7 +14,7 @@ Krab is a lightweight, secure, and easy-to-use password manager designed to run 
 <!-- [Screenshot of Krab's main interface] -->
 <!-- ``` -->
 <!-- Or use an image tag: -->
-<!-- ![Krab Screenshot](path/to/your/screenshot.png) -->
+![Krab Screenshot](https://i.ibb.co/1YfGh7Z3/screen.png)
 
 ## ✨ Features
 
