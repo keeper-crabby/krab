@@ -490,6 +490,10 @@ impl User {
             return Err("Integrity check failed".to_string());
         }
 
+        if ro_records.0.len() == 1 {
+            return Err("Cannot remove the last record".to_string());
+        }
+
         let mut new_records = vec![];
         let mut found = false;
         for r in self.0.iter() {
@@ -560,8 +564,8 @@ impl User {
 
             if data.domain != record.domain {
                 new_records.push(r.clone());
-                ro_records.remove_record(&record.domain);
             } else {
+                ro_records.remove_record(&record.domain);
                 found = true;
             }
         }
@@ -1184,6 +1188,26 @@ mod tests {
     }
 
     #[test]
+    pub fn test_remove_record_fail_only_record_should_not_remove() {
+        let user_data = setup_user_data("example.com").unwrap();
+        let (mut user, _) = create_user(&user_data).unwrap();
+
+        let remove_record = RecordOperationConfig::new(
+            &user_data.username,
+            &user_data.master_password,
+            "example.com",
+            "",
+            &user_data.path,
+        );
+        let res = user.remove_record(remove_record);
+
+        // delete the file (user)
+        fs::remove_file(user.path()).unwrap();
+
+        assert_eq!(res.is_err(), true);
+    }
+
+    #[test]
     pub fn test_modify_record_success() {
         let user_data = setup_user_data("example.com").unwrap();
         let (mut user, _) = create_user(&user_data).unwrap();
@@ -1216,6 +1240,7 @@ mod tests {
         fs::remove_file(user.path()).unwrap();
 
         assert_eq!(res.is_ok(), true);
+        assert_eq!(res.unwrap().records().len(), 1);
         assert_eq!(password, new_password);
         assert_eq!(records.len(), 1);
     }
