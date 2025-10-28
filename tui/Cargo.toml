@@ -4,6 +4,8 @@ version = "0.1.1"
 edition = "2021"
 
 [dependencies]
+chrono = "0.4.42"
+directories = "5.0.1"
 krab_backend = { path = "../backend" }
 ratatui = "0.28.0"
 downcast-rs = "1.2.1"

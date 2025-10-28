@@ -1,4 +1,5 @@
 use cli_clipboard::{ClipboardContext, ClipboardProvider};
+use directories::UserDirs;
 use ratatui::{
     crossterm::event::{KeyCode, KeyEvent},
     prelude::{Buffer, Rect},
@@ -24,6 +25,7 @@ use crate::{
     views::{login::Login, View},
     Application, ViewState, COLOR_BLACK, COLOR_ORANGE, COLOR_WHITE,
 };
+use chrono;
 use krab_backend::user::{ReadOnlyRecords, RecordOperationConfig, User};
 
 const DOMAIN_PASSWORD_LIST_ITEM_HEIGHT: u16 = 4;
@@ -33,7 +35,7 @@ const MAX_ENTRY_LENGTH: u16 = 256;
 const DOMAIN_PASSWORD_MIDDLE_WIDTH: u16 = 3;
 const MIN_WIDTH: u16 = 128;
 const FILTER_INPUT_WIDTH: u16 = 64;
-const LEGEND_TEXT: &str = "j - down | k - up | h - left | l - right | q - quit | a - add | d - delete selected | e - edit selected | c - copy selected | f - filter | Enter - toggle secret";
+const LEGEND_TEXT: &str = "j - down | k - up | h - left | l - right | q - quit | a - add | d - delete selected | e - edit selected | c - copy selected | f - filter | x - export | Enter - toggle secret";
 
 /// Represents the home view state
 ///
@@ -712,6 +714,34 @@ impl Home {
     fn index_offset(&self, index: u16) -> u16 {
         index * DOMAIN_PASSWORD_LIST_ITEM_HEIGHT + 1 + self.header_height() + self.legend_height()
     }
+
+    /// Exports secrets to csv file
+    ///
+    /// # Returns
+    /// Error if something went wrong
+    fn export_csv(&self) -> Result<(), String> {
+        let user_dirs = UserDirs::new().ok_or_else(|| "Could not create user dirs".to_string())?;
+
+        let download_dir = user_dirs
+            .download_dir()
+            .ok_or_else(|| "Could not find download dir".to_string())?;
+
+        let now = chrono::Local::now();
+        let formatted_date = now.format("%Y-%m-%d-%H-%M-%S").to_string();
+        let filename = format!("krab-secrets-{}.csv", formatted_date);
+        let file_path = download_dir.join(filename);
+
+        let mut result = "domain,password\n".to_string();
+        if let Some(root_secrets) = self.secrets.first() {
+            for secret in &root_secrets.secrets {
+                result.push_str(&format!("{},{}\n", secret.key, secret.value));
+            }
+        }
+
+        std::fs::write(file_path, result).map_err(|e| e.to_string())?;
+
+        Ok(())
+    }
 }
 
 impl View for Home {
@@ -796,6 +826,24 @@ impl View for Home {
                 KeyCode::Char('f') => {
                     self.state = HomeViewState::Filter;
                 }
+                KeyCode::Char('x') => match self.export_csv() {
+                    Ok(_) => {
+                        app.mutable_app_state
+                            .popups
+                            .push(Box::new(MessagePopup::new(
+                                "Secrets exported\nsuccessfully to the\ndownloads folder"
+                                    .to_string(),
+                            )));
+                    }
+                    Err(e) => {
+                        app.mutable_app_state
+                            .popups
+                            .push(Box::new(MessagePopup::new(format!(
+                                "Failed to export secrets: {}",
+                                e
+                            ))));
+                    }
+                },
                 _ => {}
             },
             HomeViewState::Filter => match key.code {
