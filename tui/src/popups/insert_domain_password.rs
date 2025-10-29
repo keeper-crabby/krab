@@ -75,6 +75,7 @@ pub enum InsertDomainPasswordExitState {
 /// * `exit_state` - The exit state
 /// * `cursors` - The cursors
 /// * `input_offsets` - The input offsets
+/// * `hidden_password` - Decides if the password is hidden
 ///
 /// # Methods
 /// * `new` - Creates a new `InsertDomainPassword`
@@ -95,6 +96,7 @@ pub struct InsertDomainPassword {
     exit_state: Option<InsertDomainPasswordExitState>,
     cursors: HashMap<DomainPasswordInput, u16>,
     input_offsets: HashMap<DomainPasswordInput, u16>,
+    hidden_password: bool,
 }
 
 impl InsertDomainPassword {
@@ -116,6 +118,7 @@ impl InsertDomainPassword {
             exit_state: None,
             cursors,
             input_offsets,
+            hidden_password: true,
         }
     }
 
@@ -186,7 +189,7 @@ impl InsertDomainPassword {
             DomainPasswordInput::Password => InputConfig::new(
                 self.state == InsertDomainPasswordState::Password,
                 self.password.clone(),
-                true,
+                self.hidden_password,
                 "Password | CTRL + g - generate".to_string(),
                 if self.state == InsertDomainPasswordState::Password {
                     Some(
@@ -299,6 +302,20 @@ impl Popup for InsertDomainPassword {
                         self.password = generate_password();
                         self.cursors.insert(DomainPasswordInput::Password, 0);
                         self.input_offsets.insert(DomainPasswordInput::Password, 0);
+                    } else {
+                        let config = self.generate_input_config(DomainPasswordInput::Password);
+                        let (value, cursor_position, input_offset) =
+                            Input::handle_key(key, &config, self.password().as_str());
+                        self.password = value;
+                        self.cursors
+                            .insert(DomainPasswordInput::Password, cursor_position);
+                        self.input_offsets
+                            .insert(DomainPasswordInput::Password, input_offset);
+                    }
+                }
+                KeyCode::Char('s') => {
+                    if key.modifiers.contains(KeyModifiers::CONTROL) {
+                        self.hidden_password = !self.hidden_password;
                     } else {
                         let config = self.generate_input_config(DomainPasswordInput::Password);
                         let (value, cursor_position, input_offset) =
