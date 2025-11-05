@@ -2,13 +2,14 @@ use ratatui::{crossterm::event::KeyEvent, layout::Rect, Frame};
 
 use crate::{
     popups::Popup,
-    views::{home::Home, login::Login, register::Register, startup::StartUp},
+    views::{home::Home, login::Login, register::Register, settings::Settings, startup::StartUp},
     Application,
 };
 
 pub mod home;
 pub mod login;
 pub mod register;
+pub mod settings;
 pub mod startup;
 
 /// Represents the state of the application
@@ -18,12 +19,14 @@ pub mod startup;
 /// * `StartUp` - The startup state
 /// * `Register` - The register state
 /// * `Home` - The home state
+/// * `Settings` - The settings state
 #[derive(Clone)]
 pub enum ViewState {
     Login(Login),
     StartUp(StartUp),
     Register(Register),
     Home(Home),
+    Settings(Settings),
 }
 
 /// Represents a state
@@ -107,11 +110,11 @@ pub trait View {
     }
 
     /// Returns the type of the view
-    /// 
+    ///
     /// # Arguments
     /// * `app` - The application
     /// * `popup` - The insert password popup
-    /// 
+    ///
     /// # Returns
     /// The updated application
     fn handle_insert_password_popup(

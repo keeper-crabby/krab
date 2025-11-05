@@ -10,7 +10,7 @@ use crate::{
         button::{Button, ButtonConfig},
         input::InputConfig,
     },
-    views::{login::Login, register::Register, View, ViewState},
+    views::{login::Login, register::Register, settings::Settings, View, ViewState},
     Application,
 };
 
@@ -19,11 +19,13 @@ use crate::{
 /// # Variants
 /// * `Login` - The login button
 /// * `Register` - The register button
+/// * `Settings` - The settings button
 /// * `Quit` - The quit button
 #[derive(Debug, Clone)]
 enum StartUpButton {
     Login,
     Register,
+    Settings,
     Quit,
 }
 
@@ -32,11 +34,13 @@ enum StartUpButton {
 /// # Variants
 /// * `Login` - The login state
 /// * `Register` - The register state
+/// * `Settings` - The settings state
 /// * `Quit` - The quit state
 #[derive(Clone, PartialEq)]
 enum StartUpState {
     Login,
     Register,
+    Settings,
     Quit,
 }
 
@@ -82,6 +86,9 @@ impl StartUp {
             StartUpButton::Register => {
                 ButtonConfig::new(self.state == StartUpState::Register, "Register".to_string())
             }
+            StartUpButton::Settings => {
+                ButtonConfig::new(self.state == StartUpState::Settings, "Settings".to_string())
+            }
             StartUpButton::Quit => {
                 ButtonConfig::new(self.state == StartUpState::Quit, "Quit".to_string())
             }
@@ -91,7 +98,7 @@ impl StartUp {
 
 impl View for StartUp {
     fn render(&self, f: &mut Frame, _app: &Application, rect: Rect) {
-        let height = 3 * ButtonConfig::height();
+        let height = 4 * ButtonConfig::height();
         let width = InputConfig::default_width();
         let rect = centered_absolute_rect(rect, width, height);
         let layout = Layout::default()
@@ -100,17 +107,20 @@ impl View for StartUp {
                 Constraint::Length(ButtonConfig::height()),
                 Constraint::Length(ButtonConfig::height()),
                 Constraint::Length(ButtonConfig::height()),
+                Constraint::Length(ButtonConfig::height()),
             ])
             .split(rect);
 
         let login_config = self.generate_button_config(StartUpButton::Login);
         let register_config = self.generate_button_config(StartUpButton::Register);
+        let settings_config = self.generate_button_config(StartUpButton::Settings);
         let quit_config = self.generate_button_config(StartUpButton::Quit);
         let mut buffer = f.buffer_mut();
 
         Button::render(&mut buffer, layout[0], &login_config);
         Button::render(&mut buffer, layout[1], &register_config);
-        Button::render(&mut buffer, layout[2], &quit_config);
+        Button::render(&mut buffer, layout[2], &settings_config);
+        Button::render(&mut buffer, layout[3], &quit_config);
     }
 
     fn handle_key(&mut self, key: &KeyEvent, app: &Application) -> Application {
@@ -141,10 +151,26 @@ impl View for StartUp {
                     change_state = true;
                 }
                 KeyCode::Down | KeyCode::Tab | KeyCode::Char('j') => {
-                    self.state = StartUpState::Quit;
+                    self.state = StartUpState::Settings;
                 }
                 KeyCode::Up | KeyCode::Char('k') => {
                     self.state = StartUpState::Login;
+                }
+                KeyCode::Esc | KeyCode::Char('q') => {
+                    app.mutable_app_state.running = false;
+                }
+                _ => {}
+            },
+            StartUpState::Settings => match key.code {
+                KeyCode::Enter => {
+                    app.state = ViewState::Settings(Settings::new());
+                    change_state = true;
+                }
+                KeyCode::Down | KeyCode::Tab | KeyCode::Char('j') => {
+                    self.state = StartUpState::Quit;
+                }
+                KeyCode::Up | KeyCode::Char('k') => {
+                    self.state = StartUpState::Register;
                 }
                 KeyCode::Esc | KeyCode::Char('q') => {
                     app.mutable_app_state.running = false;
@@ -159,7 +185,7 @@ impl View for StartUp {
                     self.state = StartUpState::Login;
                 }
                 KeyCode::Up | KeyCode::Char('k') => {
-                    self.state = StartUpState::Register;
+                    self.state = StartUpState::Settings;
                 }
                 _ => {}
             },

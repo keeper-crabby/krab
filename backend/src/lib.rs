@@ -1,20 +1,17 @@
-use directories::ProjectDirs;
+use directories::{BaseDirs, ProjectDirs};
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     env,
     fs::{self, File, OpenOptions},
-    io::{self, Write},
+    io::{self, Read, Write},
     path::{Path, PathBuf},
     str,
 };
 
 mod models;
 pub mod user;
-
-const INCLUDE_UPPERCASE: bool = true;
-const INCLUDE_NUMBERS: bool = true;
-const INCLUDE_SPECIAL: bool = true;
 
 const LOWERCASE: &str = "abcdefghijklmnopqrstuvwxyz";
 const UPPERCASE: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -25,6 +22,120 @@ const DEFAULT_LENGTH: usize = 16;
 
 const DB_DIR: &str = "krab";
 const RELEASE_SUFFIX: &str = "release";
+const CONFIG_FILE: &str = "config.json";
+
+/// Configuration for password generation options
+///
+/// # Fields
+/// * `include_uppercase` - Does the password include uppercase characters
+/// * `include_numbers` - Does the password include numbers
+/// * `include_special` - Does the password include special characters
+/// * `length` - Length of the password
+///
+/// # Implements
+/// * `Default`
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PasswordConfig {
+    pub include_uppercase: bool,
+    pub include_numbers: bool,
+    pub include_special: bool,
+    pub length: usize,
+}
+
+impl Default for PasswordConfig {
+    fn default() -> Self {
+        Self {
+            include_uppercase: true,
+            include_numbers: true,
+            include_special: true,
+            length: DEFAULT_LENGTH,
+        }
+    }
+}
+
+/// Configuration for the application
+///
+/// # Fields
+/// * `password_config` - Configuration for password generation options
+///
+/// # Methods
+/// * `get_config_path` - Gets the path to the configuration file
+/// * `load` - Loads password configuration from file, or returns default if file doesn't exist
+/// * `save` - Saves password configuration to file
+///
+/// # Implements
+/// * `Default`
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Config {
+    pub password_config: PasswordConfig,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            password_config: PasswordConfig::default(),
+        }
+    }
+}
+
+impl Config {
+    /// Gets the path to the configuration file
+    fn get_config_path() -> Result<PathBuf, io::Error> {
+        if let Some(base_dirs) = BaseDirs::new() {
+            let config_dir = base_dirs.config_dir().join(DB_DIR);
+            if !config_dir.exists() {
+                fs::create_dir_all(&config_dir)?;
+            }
+            Ok(config_dir.join(CONFIG_FILE))
+        } else {
+            Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                "Could not get config directory",
+            ))
+        }
+    }
+
+    /// Loads password configuration from file, or returns default if file doesn't exist
+    pub fn load() -> Result<Self, io::Error> {
+        let config_path = Self::get_config_path()?;
+
+        if !config_path.exists() {
+            // Create default config file
+            let default_config = Self::default();
+            default_config.save()?;
+            return Ok(default_config);
+        }
+
+        let mut file = File::open(config_path)?;
+        let mut contents = String::new();
+        file.read_to_string(&mut contents)?;
+
+        match serde_json::from_str(&contents) {
+            Ok(config) => Ok(config),
+            Err(_) => {
+                // If config file is corrupted, return default and save it
+                let default_config = Self::default();
+                default_config.save()?;
+                Ok(default_config)
+            }
+        }
+    }
+
+    /// Saves password configuration to file
+    pub fn save(&self) -> Result<(), io::Error> {
+        let config_path = Self::get_config_path()?;
+        let contents = serde_json::to_string_pretty(self).map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("Serialization error: {}", e),
+            )
+        })?;
+
+        let mut file = File::create(config_path)?;
+        file.write_all(contents.as_bytes())?;
+        Ok(())
+    }
+}
 
 /// Initializes the project directories and returns the path to the data directory
 /// If the environment variable KRAB_DIR is set, the data directory will be created
@@ -79,31 +190,110 @@ pub fn hash(data: String) -> String {
     format!("{:x}", result)
 }
 
-/// Generates a random password
+/// Helper function to check if a password contains uppercase characters
+///
+/// # Arguments
+/// * `password` - The password to check
+///
+/// # Returns
+/// `true` if the password contains uppercase characters, otherwise `false`
+fn contains_uppercase(password: &str) -> bool {
+    password.chars().any(|c| UPPERCASE.contains(c))
+}
+
+/// Helper function to check if a password contains numbers
+///
+/// # Arguments
+/// * `password` - The password to check
+///
+/// # Returns
+/// `true` if the password contains numbers, otherwise `false`
+fn contains_numbers(password: &str) -> bool {
+    password.chars().any(|c| NUMBERS.contains(c))
+}
+
+/// Helper function to check if a password contains special characters
+///
+/// # Arguments
+/// * `password` - The password to check
+///
+/// # Returns
+/// `true` if the password contains special characters, otherwise `false`
+fn contains_special(password: &str) -> bool {
+    password.chars().any(|c| SPECIAL.contains(c))
+}
+
+/// Helper function to validate if a password meets the configuration requirements
+///
+/// # Arguments
+/// * `password` - The password to validate
+/// * `config` - The password configuration
+///
+/// # Returns
+/// `true` if the password meets the requirements, otherwise `false`
+fn validate_password(password: &str, config: &PasswordConfig) -> bool {
+    // Always contains lowercase (always included in charset)
+    let has_lowercase = password.chars().any(|c| LOWERCASE.contains(c));
+
+    let has_uppercase = if config.include_uppercase {
+        contains_uppercase(password)
+    } else {
+        true // Not required, so consider it valid
+    };
+
+    let has_numbers = if config.include_numbers {
+        contains_numbers(password)
+    } else {
+        true // Not required, so consider it valid
+    };
+
+    let has_special = if config.include_special {
+        contains_special(password)
+    } else {
+        true // Not required, so consider it valid
+    };
+
+    has_lowercase && has_uppercase && has_numbers && has_special
+}
+
+/// Generates a random password with the specified configuration
 ///
 /// # Returns
 ///
-/// A randomly generated password as a string
+/// A randomly generated password as a string that meets all the configuration requirements
 pub fn generate_password() -> String {
-    let mut password = String::new();
+    let config = Config::load().unwrap_or_default();
+    let config = config.password_config;
     let mut rng = rand::thread_rng();
+
+    // Build charset based on configuration
     let mut charset = LOWERCASE.to_string();
-    if INCLUDE_UPPERCASE {
+    if config.include_uppercase {
         charset.push_str(UPPERCASE);
     }
-    if INCLUDE_NUMBERS {
+    if config.include_numbers {
         charset.push_str(NUMBERS);
     }
-    if INCLUDE_SPECIAL {
+    if config.include_special {
         charset.push_str(SPECIAL);
     }
-    let charset: Vec<char> = charset.chars().collect();
-    for _ in 0..DEFAULT_LENGTH {
-        let idx = rng.gen_range(0..charset.len());
-        password.push(charset[idx]);
-    }
 
-    password
+    let charset: Vec<char> = charset.chars().collect();
+
+    // Generate password until it meets all requirements
+    loop {
+        let mut password = String::new();
+        for _ in 0..config.length {
+            let idx = rng.gen_range(0..charset.len());
+            password.push(charset[idx]);
+        }
+
+        // Validate the generated password
+        if validate_password(&password, &config) {
+            return password;
+        }
+        // If validation fails, loop continues to generate a new password
+    }
 }
 
 /// Creates a new file in the specified directory

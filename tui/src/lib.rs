@@ -148,6 +148,11 @@ fn check_if_out_of_bound(state: &ViewState, rect: Rect) -> Option<(u16, u16)> {
                 return Some((s.min_area().0, s.min_area().1));
             }
         }
+        ViewState::Settings(s) => {
+            if (s.min_area().0 > rect.width) || (s.min_area().1 > rect.height) {
+                return Some((s.min_area().0, s.min_area().1));
+            }
+        }
     }
     None
 }
@@ -186,6 +191,9 @@ fn ui(f: &mut Frame, app: &Application) {
             s.render(f, app, rect);
         }
         ViewState::Home(s) => {
+            s.render(f, app, rect);
+        }
+        ViewState::Settings(s) => {
             s.render(f, app, rect);
         }
     }
@@ -272,6 +280,7 @@ fn run_app<B: Backend>(
                     ViewState::StartUp(s) => changed_app = s.handle_key(&key, &app_copy),
                     ViewState::Home(s) => changed_app = s.handle_key(&key, &app_copy),
                     ViewState::Register(s) => changed_app = s.handle_key(&key, &app_copy),
+                    ViewState::Settings(s) => changed_app = s.handle_key(&key, &app_copy),
                 };
 
                 app.mutable_app_state = changed_app.mutable_app_state;
