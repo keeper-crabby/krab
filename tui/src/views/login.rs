@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use ratatui::{
-    crossterm::event::{KeyCode, KeyEvent},
+    crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
     layout::Rect,
     prelude::{Constraint, Direction, Layout},
     Frame,
@@ -73,6 +73,7 @@ enum LoginState {
 /// * `path` - The path
 /// * `cursors` - The cursors
 /// * `input_offsets` - The input offsets
+/// * `hidden_password` - Decides if the password is hidden
 ///
 /// # Methods
 /// * `new` - Creates a new `Login`
@@ -90,6 +91,7 @@ pub struct Login {
     path: PathBuf,
     cursors: HashMap<LoginInput, u16>,
     input_offsets: HashMap<LoginInput, u16>,
+    hidden_password: bool,
 }
 
 impl Login {
@@ -114,6 +116,7 @@ impl Login {
             path: path.clone(),
             cursors,
             input_offsets,
+            hidden_password: true,
         }
     }
 
@@ -164,8 +167,8 @@ impl Login {
             LoginInput::MasterPassword => InputConfig::new(
                 self.state == LoginState::MasterPassword,
                 self.master_password.clone(),
-                true,
-                "Master Password".to_string(),
+                self.hidden_password,
+                "Master Password | CTRL + s - show/hide".to_string(),
                 if self.state == LoginState::MasterPassword {
                     Some(
                         self.cursors
@@ -267,6 +270,20 @@ impl View for Login {
                 }
                 KeyCode::Up => {
                     self.state = LoginState::Username;
+                }
+                KeyCode::Char('s') => {
+                    if key.modifiers.contains(KeyModifiers::CONTROL) {
+                        self.hidden_password = !self.hidden_password;
+                    } else {
+                        let config = self.generate_input_config(LoginInput::MasterPassword);
+                        let (value, cursor_position, input_offset) =
+                            Input::handle_key(key, &config, self.master_password.as_str());
+                        self.master_password = value;
+                        self.cursors
+                            .insert(LoginInput::MasterPassword, cursor_position);
+                        self.input_offsets
+                            .insert(LoginInput::MasterPassword, input_offset);
+                    }
                 }
                 KeyCode::Esc => {
                     app.state = ViewState::StartUp(StartUp::new());

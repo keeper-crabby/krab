@@ -1,5 +1,5 @@
 use ratatui::{
-    crossterm::event::{KeyCode, KeyEvent},
+    crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
     prelude::{Constraint, Direction, Layout, Rect},
     widgets::Clear,
     Frame,
@@ -58,6 +58,7 @@ pub enum InsertMasterExitState {
 /// * `exit_state` - The exit state
 /// * `cursors` - The cursors
 /// * `input_offsets` - The input offsets
+/// * `hidden_password` - Decides if the password is hidden
 ///
 /// # Methods
 /// * `new` - Creates a new `InsertMaster`
@@ -76,6 +77,7 @@ pub struct InsertMaster {
     exit_state: Option<InsertMasterExitState>,
     cursor: u16,
     input_offset: u16,
+    hidden_password: bool,
 }
 
 impl InsertMaster {
@@ -92,6 +94,7 @@ impl InsertMaster {
             exit_state: None,
             cursor,
             input_offset,
+            hidden_password: true,
         }
     }
 
@@ -130,8 +133,8 @@ impl InsertMaster {
         InputConfig::new(
             self.state == InsertMasterState::Master,
             self.master(),
-            true,
-            "Master password".to_string(),
+            self.hidden_password,
+            "Master password | CTRL + s - show/hide".to_string(),
             if self.state == InsertMasterState::Master {
                 Some(self.cursor)
             } else {
@@ -204,6 +207,18 @@ impl Popup for InsertMaster {
             InsertMasterState::Master => match key.code {
                 KeyCode::Down | KeyCode::Tab | KeyCode::Enter | KeyCode::Up => {
                     self.state = InsertMasterState::Quit;
+                }
+                KeyCode::Char('s') => {
+                    if key.modifiers.contains(KeyModifiers::CONTROL) {
+                        self.hidden_password = !self.hidden_password;
+                    } else {
+                        let config = self.generate_input_config();
+                        let (value, cursor_position, input_offset) =
+                            Input::handle_key(key, &config, self.master().as_str());
+                        self.master = value;
+                        self.cursor = cursor_position;
+                        self.input_offset = input_offset;
+                    }
                 }
                 KeyCode::Esc => {
                     app.mutable_app_state.popups.pop();

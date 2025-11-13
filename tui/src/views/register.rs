@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use ratatui::{
-    crossterm::event::{KeyCode, KeyEvent},
+    crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
     layout::{Constraint, Direction, Layout, Rect},
     Frame,
 };
@@ -77,6 +77,8 @@ enum RegisterState {
 /// * `path` - The path
 /// * `cursors` - The cursors
 /// * `input_offsets` - The input offsets
+/// * `hidden_password` - Decides if the master password is hidden
+/// * `hidden_confirm_password` - Decides if the confirm master password is hidden
 ///
 /// # Methods
 /// * `new` - Creates a new `Register`
@@ -96,6 +98,8 @@ pub struct Register {
     path: PathBuf,
     cursors: HashMap<RegisterInput, u16>,
     input_offsets: HashMap<RegisterInput, u16>,
+    hidden_password: bool,
+    hidden_confirm_password: bool,
 }
 
 impl Register {
@@ -125,6 +129,8 @@ impl Register {
             path: path.clone(),
             cursors,
             input_offsets,
+            hidden_password: true,
+            hidden_confirm_password: true,
         }
     }
 
@@ -156,8 +162,8 @@ impl Register {
             RegisterInput::MasterPassword => InputConfig::new(
                 self.state == RegisterState::MasterPassword,
                 self.master_password.clone(),
-                true,
-                "Master Password".to_string(),
+                self.hidden_password,
+                "Master Password | CTRL + s - show/hide".to_string(),
                 if self.state == RegisterState::MasterPassword {
                     Some(
                         self.cursors
@@ -177,8 +183,8 @@ impl Register {
             RegisterInput::ConfirmMasterPassword => InputConfig::new(
                 self.state == RegisterState::ConfirmMasterPassword,
                 self.confirm_master_password.clone(),
-                true,
-                "Confirm Master Password".to_string(),
+                self.hidden_confirm_password,
+                "Confirm Master Password | CTRL + s - show/hide".to_string(),
                 if self.state == RegisterState::ConfirmMasterPassword {
                     Some(
                         self.cursors
@@ -286,6 +292,20 @@ impl View for Register {
                 KeyCode::Up => {
                     self.state = RegisterState::Username;
                 }
+                KeyCode::Char('s') => {
+                    if key.modifiers.contains(KeyModifiers::CONTROL) {
+                        self.hidden_password = !self.hidden_password;
+                    } else {
+                        let config = self.generate_input_config(RegisterInput::MasterPassword);
+                        let (value, cursor_position, input_offset) =
+                            Input::handle_key(key, &config, self.master_password.as_str());
+                        self.master_password = value;
+                        self.cursors
+                            .insert(RegisterInput::MasterPassword, cursor_position);
+                        self.input_offsets
+                            .insert(RegisterInput::MasterPassword, input_offset);
+                    }
+                }
                 KeyCode::Esc => {
                     app.state = ViewState::StartUp(StartUp::new());
                     change_state = true;
@@ -307,6 +327,20 @@ impl View for Register {
                 }
                 KeyCode::Up => {
                     self.state = RegisterState::MasterPassword;
+                }
+                KeyCode::Char('s') => {
+                    if key.modifiers.contains(KeyModifiers::CONTROL) {
+                        self.hidden_confirm_password = !self.hidden_confirm_password;
+                    } else {
+                        let config = self.generate_input_config(RegisterInput::ConfirmMasterPassword);
+                        let (value, cursor_position, input_offset) =
+                            Input::handle_key(key, &config, self.confirm_master_password.as_str());
+                        self.confirm_master_password = value;
+                        self.cursors
+                            .insert(RegisterInput::ConfirmMasterPassword, cursor_position);
+                        self.input_offsets
+                            .insert(RegisterInput::ConfirmMasterPassword, input_offset);
+                    }
                 }
                 KeyCode::Esc => {
                     app.state = ViewState::StartUp(StartUp::new());

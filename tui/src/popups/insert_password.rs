@@ -63,6 +63,7 @@ pub enum InsertPasswordExitState {
 /// * `exit_state` - The exit state
 /// * `cursors` - The cursors
 /// * `input_offsets` - The input offsets
+/// * `hidden_password` - Decides if the password is hidden
 ///
 /// # Methods
 /// * `new` - Creates a new `InsertPassword`
@@ -82,6 +83,7 @@ pub struct InsertPassword {
     exit_state: Option<InsertPasswordExitState>,
     cursor: u16,
     input_offset: u16,
+    hidden_password: bool,
 }
 
 impl InsertPassword {
@@ -97,6 +99,7 @@ impl InsertPassword {
             exit_state: None,
             cursor : 0,
             input_offset : 0,
+            hidden_password: true,
         }
     }
 
@@ -128,15 +131,15 @@ impl InsertPassword {
     }
 
     /// Returns the input config for the popup
-    /// 
+    ///
     /// # Returns
     /// The input config for the popup
     fn generate_input_config(&self) -> InputConfig {
         InputConfig::new(
             self.state == InsertPasswordState::Password,
             self.password(),
-            true,
-            "Password | CTRL + g - generate".to_string(),
+            self.hidden_password,
+            "Password | CTRL + g - generate | CTRL + s - show/hide".to_string(),
             if self.state == InsertPasswordState::Password {
                 Some(self.cursor)
             } else {
@@ -238,6 +241,18 @@ impl Popup for InsertPassword {
                         self.password = generate_password();
                         self.cursor = 0;
                         self.input_offset = 0;
+                    } else {
+                        let config = self.generate_input_config();
+                        let (value, cursor_position, input_offset) =
+                            Input::handle_key(key, &config, self.password().as_str());
+                        self.password = value;
+                        self.cursor = cursor_position;
+                        self.input_offset = input_offset;
+                    }
+                }
+                KeyCode::Char('s') => {
+                    if key.modifiers.contains(KeyModifiers::CONTROL) {
+                        self.hidden_password = !self.hidden_password;
                     } else {
                         let config = self.generate_input_config();
                         let (value, cursor_position, input_offset) =
