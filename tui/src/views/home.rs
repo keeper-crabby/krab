@@ -404,8 +404,9 @@ impl Home {
     /// # Arguments
     /// * `area` - The area
     fn down(&mut self, area: Rect) {
-        if self.secrets.last().unwrap().selected_secret
-            == self.secrets.last().unwrap().secrets.len() - 1
+        let current_selected_secret = self.secrets.last().unwrap().selected_secret;
+        if current_selected_secret == self.secrets.last().unwrap().secrets.len() - 1
+            || current_selected_secret == self.secrets.last().unwrap().secrets.len() - 2
         {
             self.scroll_to_bottom(area);
             return;
@@ -451,7 +452,9 @@ impl Home {
         let (_, inner_buffer_height) = ScrollView::inner_buffer_bounding_box(area);
         let mut position = self.position.clone();
         if selected_secret > previous_selected_secret {
-            if self.index_offset(selected_secret as u16) >= inner_buffer_height + position.offset_y
+            if self.index_offset(selected_secret as u16) + 2 * DOMAIN_PASSWORD_LIST_ITEM_HEIGHT
+                >= inner_buffer_height + position.offset_y
+                && selected_secret != self.secrets.last().unwrap().secrets.len() - 1
             {
                 position.offset_y += DOMAIN_PASSWORD_LIST_ITEM_HEIGHT;
             }
