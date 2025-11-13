@@ -35,7 +35,7 @@ const MAX_ENTRY_LENGTH: u16 = 256;
 const DOMAIN_PASSWORD_MIDDLE_WIDTH: u16 = 3;
 const MIN_WIDTH: u16 = 128;
 const FILTER_INPUT_WIDTH: u16 = 64;
-const LEGEND_TEXT: &str = "j - down | k - up | h - left | l - right | q - quit | a - add | d - delete selected | e - edit selected | c - copy selected | f - filter | x - export | Enter - toggle secret";
+const LEGEND_TEXT: &str = "Press ? for help";
 
 /// Represents the home view state
 ///
@@ -258,6 +258,34 @@ impl Home {
     /// The input value
     fn filter_value(&self) -> String {
         self.filter_value.clone()
+    }
+
+    /// Generates the help text with all keybindings grouped by category
+    ///
+    /// # Returns
+    /// A formatted string with categorized keybindings
+    fn generate_help_text() -> String {
+        let help = vec![
+            "NAVIGATION:",
+            "  j / Down     Move down",
+            "  k / Up       Move up",
+            "  h / Left     Scroll left",
+            "  l / Right    Scroll right",
+            "",
+            "ACTIONS:",
+            "  a            Add new secret",
+            "  d            Delete selected secret",
+            "  e            Edit selected secret",
+            "  c            Copy password to clipboard",
+            "  Enter        Toggle password visibility",
+            "",
+            "OTHER:",
+            "  f            Enter filter/search mode",
+            "  x            Export secrets to CSV",
+            "  q            Quit application",
+            "  ?            Show this help",
+        ];
+        help.join("\n")
     }
 
     /// Toggles the shown secret upwards to the root
@@ -847,6 +875,19 @@ impl View for Home {
                             ))));
                     }
                 },
+                KeyCode::Char('?') => {
+                    let rect = app.immutable_app_state.rect.unwrap_or(self.area);
+                    // Calculate popup size: use 80% of screen width and height, but cap at reasonable maximums
+                    let help_width = std::cmp::min((rect.width * 4) / 5, 60);
+                    let help_height = std::cmp::min((rect.height * 4) / 5, 24);
+                    app.mutable_app_state
+                        .popups
+                        .push(Box::new(MessagePopup::new_with_size(
+                            Self::generate_help_text(),
+                            help_width,
+                            help_height,
+                        )));
+                }
                 _ => {}
             },
             HomeViewState::Filter => match key.code {
