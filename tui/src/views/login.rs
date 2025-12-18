@@ -143,10 +143,11 @@ impl Login {
     ///
     /// # Arguments
     /// * `input` - The input
+    /// * `theme` - The theme to use for styling
     ///
     /// # Returns
     /// The input configuration
-    fn generate_input_config(&self, input: LoginInput) -> InputConfig {
+    fn generate_input_config<'a>(&self, input: LoginInput, theme: &'a crate::theme::Theme) -> InputConfig<'a> {
         match input {
             LoginInput::Username => InputConfig::new(
                 self.state == LoginState::Username,
@@ -163,6 +164,7 @@ impl Login {
                     .unwrap()
                     .clone(),
                 None,
+                theme,
             ),
             LoginInput::MasterPassword => InputConfig::new(
                 self.state == LoginState::MasterPassword,
@@ -184,6 +186,7 @@ impl Login {
                     .unwrap()
                     .clone(),
                 None,
+                theme,
             ),
         }
     }
@@ -192,23 +195,25 @@ impl Login {
     ///
     /// # Arguments
     /// * `button` - The button
+    /// * `theme` - The theme to use for styling
     ///
     /// # Returns
     /// The button configuration
-    fn generate_button_config(&self, button: LoginButton) -> ButtonConfig {
+    fn generate_button_config<'a>(&self, button: LoginButton, theme: &'a crate::theme::Theme) -> ButtonConfig<'a> {
         match button {
             LoginButton::Confirm => {
-                ButtonConfig::new(self.state == LoginState::Confirm, "Confirm".to_string())
+                ButtonConfig::new(self.state == LoginState::Confirm, "Confirm".to_string(), theme)
             }
             LoginButton::Quit => {
-                ButtonConfig::new(self.state == LoginState::Quit, "Quit".to_string())
+                ButtonConfig::new(self.state == LoginState::Quit, "Quit".to_string(), theme)
             }
         }
     }
 }
 
 impl View for Login {
-    fn render(&self, f: &mut Frame, _app: &Application, rect: Rect) {
+    fn render(&self, f: &mut Frame, app: &Application, rect: Rect) {
+        let theme = app.theme();
         let height = 2 * InputConfig::height() + ButtonConfig::height();
         let width = InputConfig::default_width();
         let rect = centered_absolute_rect(rect, width, height);
@@ -226,10 +231,10 @@ impl View for Login {
             .constraints(vec![Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)])
             .split(layout[2]);
 
-        let username_config = self.generate_input_config(LoginInput::Username);
-        let master_password_config = self.generate_input_config(LoginInput::MasterPassword);
-        let confirm_config = self.generate_button_config(LoginButton::Confirm);
-        let quit_config = self.generate_button_config(LoginButton::Quit);
+        let username_config = self.generate_input_config(LoginInput::Username, theme);
+        let master_password_config = self.generate_input_config(LoginInput::MasterPassword, theme);
+        let confirm_config = self.generate_button_config(LoginButton::Confirm, theme);
+        let quit_config = self.generate_button_config(LoginButton::Quit, theme);
         let mut buffer = f.buffer_mut();
 
         Input::render(&mut buffer, layout[0], &username_config);
@@ -255,7 +260,8 @@ impl View for Login {
                     change_state = true;
                 }
                 _ => {
-                    let config = self.generate_input_config(LoginInput::Username);
+                    let theme = app.theme();
+                    let config = self.generate_input_config(LoginInput::Username, theme);
                     let (value, cursor_position, input_offset) =
                         Input::handle_key(key, &config, self.username.as_str());
                     self.username = value;
@@ -275,7 +281,8 @@ impl View for Login {
                     if key.modifiers.contains(KeyModifiers::CONTROL) {
                         self.hidden_password = !self.hidden_password;
                     } else {
-                        let config = self.generate_input_config(LoginInput::MasterPassword);
+                        let theme = app.theme();
+                        let config = self.generate_input_config(LoginInput::MasterPassword, theme);
                         let (value, cursor_position, input_offset) =
                             Input::handle_key(key, &config, self.master_password.as_str());
                         self.master_password = value;
@@ -290,7 +297,8 @@ impl View for Login {
                     change_state = true;
                 }
                 _ => {
-                    let config = self.generate_input_config(LoginInput::MasterPassword);
+                    let theme = app.theme();
+                    let config = self.generate_input_config(LoginInput::MasterPassword, theme);
                     let (value, cursor_position, input_offset) =
                         Input::handle_key(key, &config, self.master_password.as_str());
                     self.master_password = value;

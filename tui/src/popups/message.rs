@@ -1,15 +1,15 @@
 use ratatui::{
     crossterm::event::KeyEvent,
     prelude::{Alignment, Rect},
-    style::{Color, Style},
+    style::Style,
     widgets::{Block, Clear, Padding, Paragraph},
     Frame,
 };
 
 use crate::{
-    centered_absolute_rect, from,
+    centered_absolute_rect,
     popups::{Popup, PopupType},
-    Application, COLOR_RED,
+    Application,
 };
 
 /// Represents the message popup
@@ -76,7 +76,8 @@ impl MessagePopup {
 }
 
 impl Popup for MessagePopup {
-    fn render(&self, f: &mut Frame, _app: &Application, rect: Rect) {
+    fn render(&self, f: &mut Frame, app: &Application, rect: Rect) {
+        let theme = app.theme();
         // Count lines in the message to determine if we need special formatting
         let line_count = self.message.lines().count() as u16;
 
@@ -89,12 +90,12 @@ impl Popup for MessagePopup {
         };
 
         let message_p = Paragraph::new(self.message.clone())
-            .style(Style::default().fg(from(COLOR_RED).unwrap_or(Color::Red)))
+            .style(Style::default().fg(theme.error()))
             .block(
                 Block::bordered()
                     .title(" Press any key to continue ")
                     .padding(padding)
-                    .border_style(Style::default().fg(from(COLOR_RED).unwrap_or(Color::White))),
+                    .border_style(Style::default().fg(theme.error())),
             )
             .alignment(alignment);
 

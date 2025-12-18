@@ -1,15 +1,15 @@
 use ratatui::{
     crossterm::event::{KeyCode, KeyEvent},
     layout::Rect,
-    style::{Color, Style},
+    style::Style,
     widgets::{Block, Borders, Clear},
     Frame,
 };
 
 use crate::{
-    centered_absolute_rect, from,
+    centered_absolute_rect,
     popups::{Popup, PopupType},
-    Application, COLOR_RED,
+    Application,
 };
 
 /// Represents the exit popup
@@ -44,11 +44,12 @@ impl Exit {
 // Is this even necessary?
 
 impl Popup for Exit {
-    fn render(&self, f: &mut Frame, _app: &Application, rect: Rect) {
+    fn render(&self, f: &mut Frame, app: &Application, rect: Rect) {
+        let theme = app.theme();
         let block = Block::default()
             .title(" Press q to exit ")
             .borders(Borders::ALL)
-            .style(Style::default().fg(from(COLOR_RED).unwrap_or(Color::Red)));
+            .style(Style::default().fg(theme.error()));
         f.render_widget(Clear, rect);
         f.render_widget(block, rect);
     }

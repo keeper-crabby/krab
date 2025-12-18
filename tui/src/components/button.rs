@@ -1,11 +1,11 @@
 use ratatui::{
     prelude::{Buffer, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::Line,
     widgets::{Block, Paragraph, Widget},
 };
 
-use crate::{from, COLOR_ORANGE, COLOR_WHITE};
+use crate::theme::Theme;
 
 const BUTTON_HEIGHT: u16 = 3;
 
@@ -14,14 +14,16 @@ const BUTTON_HEIGHT: u16 = 3;
 /// # Fields
 /// * `focused` - Indicates if the button is focused
 /// * `title` - The title of the button
+/// * `theme` - The theme to use for styling
 ///
 /// # Methods
 ///
 /// * `new` - Creates a new `ButtonConfig`
 /// * `height` - Returns the height of the button
-pub struct ButtonConfig {
+pub struct ButtonConfig<'a> {
     focused: bool,
     title: String,
+    theme: &'a Theme,
 }
 
 /// Represents a button
@@ -30,17 +32,18 @@ pub struct ButtonConfig {
 /// * `render` - Renders the button
 pub struct Button {}
 
-impl ButtonConfig {
+impl<'a> ButtonConfig<'a> {
     /// Creates a new `ButtonConfig`
     ///
     /// # Arguments
     /// * `focused` - Indicates if the button is focused
     /// * `title` - The title of the button
+    /// * `theme` - The theme to use for styling
     ///
     /// # Returns
     /// A new `ButtonConfig`
-    pub fn new(focused: bool, title: String) -> Self {
-        Self { focused, title }
+    pub fn new(focused: bool, title: String, theme: &'a Theme) -> Self {
+        Self { focused, title, theme }
     }
 
     /// Returns the height of the button
@@ -68,7 +71,7 @@ impl Button {
         let text = Line::from(text)
             .style(
                 Style::default()
-                    .fg(from(COLOR_ORANGE).unwrap_or(Color::Yellow))
+                    .fg(config.theme.accent())
                     .add_modifier(if config.focused {
                         Modifier::ITALIC
                     } else {
@@ -79,9 +82,9 @@ impl Button {
 
         let paragraph = Paragraph::new(text).block(Block::bordered().border_style(
             Style::default().fg(if config.focused {
-                from(COLOR_ORANGE).unwrap_or(Color::Yellow)
+                config.theme.accent()
             } else {
-                from(COLOR_WHITE).unwrap_or(Color::White)
+                config.theme.fg()
             }),
         ));
 

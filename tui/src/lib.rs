@@ -9,24 +9,19 @@ use ratatui::{
         terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
     },
     layout::{Constraint, Direction, Layout, Rect},
-    style::Color,
     Frame, Terminal,
 };
 
 use crate::{
     popups::{Popup, PopupType},
+    theme::{Theme, ThemeConfig},
     views::{startup::StartUp, View, ViewState},
 };
 
 pub mod components;
 pub mod popups;
+pub mod theme;
 pub mod views;
-
-const COLOR_BLACK: &str = "#503D2D";
-const _COLOR_CYAN: &str = "#1F9295";
-const COLOR_WHITE: &str = "#F0ECC9";
-const COLOR_ORANGE: &str = "#E3AD43";
-const COLOR_RED: &str = "#D44C1A";
 
 /// Represents the application state
 ///
@@ -59,10 +54,12 @@ struct ImmutableAppState {
 /// # Fields
 /// * `popups` - The popups
 /// * `running` - Indicates if the application is running
+/// * `theme` - The current theme
 #[derive(Clone)]
 struct MutableAppState {
     popups: Vec<Box<dyn Popup>>,
     running: bool,
+    theme: Theme,
 }
 
 /// Starts the application
@@ -94,24 +91,6 @@ pub fn start(db_path: PathBuf) -> Result<(), Box<dyn Error>> {
     terminal.show_cursor()?;
 
     Ok(())
-}
-
-/// Converts a hex string to a `Color`
-///
-/// # Arguments
-/// * `hex` - The hex string
-///
-/// # Returns
-/// A `Result` containing the `Color` if successful, otherwise a `String` is returned
-pub fn from(hex: &str) -> Result<Color, String> {
-    let hex = hex.trim_start_matches('#');
-    let try_r = u8::from_str_radix(&hex[0..2], 16);
-    let try_g = u8::from_str_radix(&hex[2..4], 16);
-    let try_b = u8::from_str_radix(&hex[4..6], 16);
-    if try_r.is_err() || try_g.is_err() || try_b.is_err() {
-        return Err("Invalid color".to_string());
-    }
-    Ok(Color::Rgb(try_r.unwrap(), try_g.unwrap(), try_b.unwrap()))
 }
 
 /// Checks if the state is out of bounds
@@ -334,6 +313,14 @@ impl Application {
     /// # Returns
     /// A new `Application`
     fn create(db_path: PathBuf, rect: Rect) -> RefCell<Self> {
+        // Load theme from config
+        let config = krab_backend::Config::load().unwrap_or_default();
+        let theme_config: ThemeConfig = config
+            .theme
+            .and_then(|v| serde_json::from_value(v).ok())
+            .unwrap_or_default();
+        let theme = theme_config.resolve();
+
         let immutable_app_state = ImmutableAppState {
             name: "krab".to_string(),
             db_path,
@@ -343,6 +330,7 @@ impl Application {
         let mutable_app_state = MutableAppState {
             popups: Vec::new(),
             running: true,
+            theme,
         };
 
         let state = ViewState::StartUp(StartUp::new());
@@ -351,5 +339,15 @@ impl Application {
             mutable_app_state,
             state,
         })
+    }
+
+    /// Returns a reference to the current theme
+    pub fn theme(&self) -> &Theme {
+        &self.mutable_app_state.theme
+    }
+
+    /// Updates the current theme
+    pub fn set_theme(&mut self, theme: Theme) {
+        self.mutable_app_state.theme = theme;
     }
 }

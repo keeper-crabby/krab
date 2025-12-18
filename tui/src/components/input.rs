@@ -1,12 +1,12 @@
 use ratatui::{
     crossterm::event::{KeyCode, KeyEvent},
     prelude::{Buffer, Rect},
-    style::{Color, Style},
+    style::Style,
     text::{Line, Span},
     widgets::{Block, Paragraph, Widget},
 };
 
-use crate::{from, COLOR_ORANGE, COLOR_WHITE};
+use crate::theme::Theme;
 
 const INPUT_HEIGHT: u16 = 3;
 const DEFAULT_INPUT_WIDTH: u16 = 32;
@@ -23,13 +23,14 @@ const PADDING: u16 = 2;
 /// * `cursor_position` - The cursor position of the input
 /// * `input_offset` - The input offset of the input
 /// * `width` - The width of the input
+/// * `theme` - The theme to use for styling
 ///
 /// # Methods
 /// * `new` - Creates a new `InputConfig`
 /// * `height` - Returns the height of the input
 /// * `default_width` - Returns the default width of the input
 /// * `width` - Returns the width of the input
-pub struct InputConfig {
+pub struct InputConfig<'a> {
     focused: bool,
     value: String,
     hidden: bool,
@@ -37,6 +38,7 @@ pub struct InputConfig {
     cursor_position: Option<u16>,
     input_offset: u16,
     width: Option<u16>,
+    theme: &'a Theme,
 }
 
 /// Represents an input
@@ -46,7 +48,7 @@ pub struct InputConfig {
 /// * `handle_key` - Handles a key event
 pub struct Input {}
 
-impl InputConfig {
+impl<'a> InputConfig<'a> {
     /// Creates a new `InputConfig`
     ///
     /// # Arguments
@@ -56,6 +58,8 @@ impl InputConfig {
     /// * `title` - The title of the input
     /// * `cursor_position` - The cursor position of the input
     /// * `input_offset` - The input offset of the input
+    /// * `width` - The width of the input
+    /// * `theme` - The theme to use for styling
     ///
     /// # Returns
     /// A new `InputConfig`
@@ -67,6 +71,7 @@ impl InputConfig {
         cursor_position: Option<u16>,
         input_offset: u16,
         width: Option<u16>,
+        theme: &'a Theme,
     ) -> Self {
         Self {
             focused,
@@ -76,6 +81,7 @@ impl InputConfig {
             cursor_position,
             input_offset,
             width,
+            theme,
         }
     }
 
@@ -146,11 +152,11 @@ impl Input {
 
             let mut line = vec![
                 Span::raw(first_part)
-                    .style(Style::default().fg(from(COLOR_WHITE).unwrap_or(Color::White))),
+                    .style(Style::default().fg(config.theme.fg())),
                 Span::raw("█")
-                    .style(Style::default().fg(from(COLOR_ORANGE).unwrap_or(Color::Yellow))),
+                    .style(Style::default().fg(config.theme.accent())),
                 Span::raw(second_part)
-                    .style(Style::default().fg(from(COLOR_WHITE).unwrap_or(Color::White))),
+                    .style(Style::default().fg(config.theme.fg())),
             ];
 
             if first_part_len + second_part_len < config.width.unwrap_or(DEFAULT_INPUT_WIDTH) {
@@ -168,7 +174,7 @@ impl Input {
 
             Line::from(vec![
                 Span::raw(text)
-                    .style(Style::default().fg(from(COLOR_WHITE).unwrap_or(Color::White))),
+                    .style(Style::default().fg(config.theme.fg())),
                 Span::raw(
                     " ".repeat((config.width.unwrap_or(DEFAULT_INPUT_WIDTH) - text_len) as usize),
                 ),
@@ -179,15 +185,15 @@ impl Input {
         let paragraph = Paragraph::new(text).block(
             Block::bordered()
                 .border_style(Style::default().fg(if config.focused {
-                    from(COLOR_ORANGE).unwrap_or(Color::Yellow)
+                    config.theme.accent()
                 } else {
-                    from(COLOR_WHITE).unwrap_or(Color::White)
+                    config.theme.fg()
                 }))
                 .title(" ".to_string() + &config.title + " ")
                 .title_style(Style::default().fg(if config.focused {
-                    from(COLOR_ORANGE).unwrap_or(Color::Yellow)
+                    config.theme.accent()
                 } else {
-                    from(COLOR_WHITE).unwrap_or(Color::White)
+                    config.theme.fg()
                 })),
         );
 
@@ -272,9 +278,15 @@ mod tests {
     use ratatui::crossterm::event::KeyModifiers;
 
     use super::*;
+    use crate::theme::{BuiltinTheme, Theme};
+
+    fn test_theme() -> Theme {
+        BuiltinTheme::Warm.theme()
+    }
 
     #[test]
     fn test_input_insert() {
+        let theme = test_theme();
         let config = InputConfig::new(
             true,
             "test".to_string(),
@@ -283,6 +295,7 @@ mod tests {
             Some(4),
             0,
             None,
+            &theme,
         );
         let key = KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE);
         let (value, cursor_position, input_offset) = Input::handle_key(&key, &config, "test");
@@ -293,6 +306,7 @@ mod tests {
 
     #[test]
     fn test_input_insert_max() {
+        let theme = test_theme();
         let mut value = String::new();
         for _ in 0..MAX_INPUT_LENGTH {
             value.push('a');
@@ -305,6 +319,7 @@ mod tests {
             Some(3),
             0,
             None,
+            &theme,
         );
         let key = KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE);
         let (value, cursor_position, input_offset) =
@@ -316,6 +331,7 @@ mod tests {
 
     #[test]
     fn test_input_backspace() {
+        let theme = test_theme();
         let config = InputConfig::new(
             true,
             "test".to_string(),
@@ -324,6 +340,7 @@ mod tests {
             Some(4),
             0,
             None,
+            &theme,
         );
         let key = KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE);
         let (value, cursor_position, input_offset) = Input::handle_key(&key, &config, "test");
@@ -334,6 +351,7 @@ mod tests {
 
     #[test]
     fn test_input_delete() {
+        let theme = test_theme();
         let config = InputConfig::new(
             true,
             "test".to_string(),
@@ -342,6 +360,7 @@ mod tests {
             Some(1),
             0,
             None,
+            &theme,
         );
         let key = KeyEvent::new(KeyCode::Delete, KeyModifiers::NONE);
         let (value, cursor_position, input_offset) = Input::handle_key(&key, &config, "test");
@@ -352,6 +371,7 @@ mod tests {
 
     #[test]
     fn test_input_left() {
+        let theme = test_theme();
         let config = InputConfig::new(
             true,
             "test".to_string(),
@@ -360,6 +380,7 @@ mod tests {
             Some(2),
             0,
             None,
+            &theme,
         );
         let key = KeyEvent::new(KeyCode::Left, KeyModifiers::NONE);
         let (value, cursor_position, input_offset) = Input::handle_key(&key, &config, "test");
@@ -370,6 +391,7 @@ mod tests {
 
     #[test]
     fn test_input_right() {
+        let theme = test_theme();
         let config = InputConfig::new(
             true,
             "test".to_string(),
@@ -378,6 +400,7 @@ mod tests {
             Some(2),
             0,
             None,
+            &theme,
         );
         let key = KeyEvent::new(KeyCode::Right, KeyModifiers::NONE);
         let (value, cursor_position, input_offset) = Input::handle_key(&key, &config, "test");
@@ -388,6 +411,7 @@ mod tests {
 
     #[test]
     fn test_input_right_max() {
+        let theme = test_theme();
         let mut value = String::new();
         for _ in 0..MAX_INPUT_LENGTH {
             value.push('a');
@@ -400,6 +424,7 @@ mod tests {
             Some(255),
             255 - DEFAULT_INPUT_WIDTH + 1,
             None,
+            &theme,
         );
         let key = KeyEvent::new(KeyCode::Right, KeyModifiers::NONE);
         let (value, cursor_position, input_offset) =
@@ -411,6 +436,7 @@ mod tests {
 
     #[test]
     fn test_input_first_offset() {
+        let theme = test_theme();
         let config = InputConfig::new(
             true,
             "0123456789012345678901234567890".to_string(),
@@ -419,6 +445,7 @@ mod tests {
             Some(31),
             0,
             None,
+            &theme,
         );
         let key = KeyEvent::new(KeyCode::Char('1'), KeyModifiers::NONE);
         let (value, cursor_position, input_offset) =
@@ -430,6 +457,7 @@ mod tests {
 
     #[test]
     fn test_input_first_offset_left() {
+        let theme = test_theme();
         let config = InputConfig::new(
             true,
             "0123456789012345678901234567890123456789012345678901234567890".to_string(),
@@ -438,6 +466,7 @@ mod tests {
             Some(29),
             28,
             None,
+            &theme,
         );
         let key = KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE);
         let (value, cursor_position, input_offset) = Input::handle_key(

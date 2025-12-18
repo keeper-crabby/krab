@@ -68,12 +68,16 @@ impl Default for PasswordConfig {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Config {
     pub password_config: PasswordConfig,
+    /// Theme configuration stored as JSON value for flexibility
+    #[serde(default)]
+    pub theme: Option<serde_json::Value>,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
             password_config: PasswordConfig::default(),
+            theme: None,
         }
     }
 }

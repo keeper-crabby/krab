@@ -3,7 +3,7 @@ use ratatui::{
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
     layout::Alignment,
     prelude::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
+    style::Style,
     text::{Line, Text},
     widgets::{Block, Borders, Clear, Paragraph, Widget},
     Frame,
@@ -15,9 +15,8 @@ use crate::{
         button::{Button, ButtonConfig},
         input::{Input, InputConfig},
     },
-    from,
     popups::{Popup, PopupType},
-    Application, COLOR_RED, COLOR_WHITE,
+    Application,
 };
 
 /// Represents the buttons in the insert password popup
@@ -132,9 +131,12 @@ impl InsertPassword {
 
     /// Returns the input config for the popup
     ///
+    /// # Arguments
+    /// * `theme` - The theme to use for styling
+    ///
     /// # Returns
     /// The input config for the popup
-    fn generate_input_config(&self) -> InputConfig {
+    fn generate_input_config<'a>(&self, theme: &'a crate::theme::Theme) -> InputConfig<'a> {
         InputConfig::new(
             self.state == InsertPasswordState::Password,
             self.password(),
@@ -147,6 +149,7 @@ impl InsertPassword {
             },
             self.input_offset,
             None,
+            theme,
         )
     }
 
@@ -154,24 +157,27 @@ impl InsertPassword {
     ///
     /// # Arguments
     /// * `input` - The input
+    /// * `theme` - The theme to use for styling
     ///
     /// # Returns
     /// The button config for the given input
-    fn generate_button_config(&self, input: PasswordButton) -> ButtonConfig {
+    fn generate_button_config<'a>(&self, input: PasswordButton, theme: &'a crate::theme::Theme) -> ButtonConfig<'a> {
         match input {
             PasswordButton::Confirm => ButtonConfig::new(
                 self.state == InsertPasswordState::Confirm,
                 "Confirm".to_string(),
+                theme,
             ),
             PasswordButton::Quit => {
-                ButtonConfig::new(self.state == InsertPasswordState::Quit, "Quit".to_string())
+                ButtonConfig::new(self.state == InsertPasswordState::Quit, "Quit".to_string(), theme)
             }
         }
     }
 }
 
 impl Popup for InsertPassword {
-    fn render(&self, f: &mut Frame, _app: &Application, rect: Rect) {
+    fn render(&self, f: &mut Frame, app: &Application, rect: Rect) {
+        let theme = app.theme();
         let height = InputConfig::height() * 2 + ButtonConfig::height();
         let width = InputConfig::default_width();
         let rect = centered_absolute_rect(rect, width, height);
@@ -189,10 +195,10 @@ impl Popup for InsertPassword {
             .constraints(vec![Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)])
             .split(layout[2]);
 
-        let password_config = self.generate_input_config();
+        let password_config = self.generate_input_config(theme);
 
-        let confirm_config = self.generate_button_config(PasswordButton::Confirm);
-        let quit_config = self.generate_button_config(PasswordButton::Quit);
+        let confirm_config = self.generate_button_config(PasswordButton::Confirm, theme);
+        let quit_config = self.generate_button_config(PasswordButton::Quit, theme);
         f.render_widget(Clear, rect);
         let mut buffer = f.buffer_mut();
 
@@ -206,18 +212,18 @@ impl Popup for InsertPassword {
         } else {
             self.domain.clone()
         };
-        let domain = Text::from(Line::from(format!(" {} ", domain)))
-            .style(Style::default().fg(from(COLOR_WHITE).unwrap_or(Color::White)));
-        let domain = Paragraph::new(domain)
+        let domain_text = Text::from(Line::from(format!(" {} ", domain)))
+            .style(Style::default().fg(theme.fg()));
+        let domain_paragraph = Paragraph::new(domain_text)
             .block(
                 Block::default()
                     .title(" Domain ")
                     .borders(Borders::ALL)
-                    .style(Style::default().fg(from(COLOR_RED).unwrap_or(Color::Cyan))),
+                    .style(Style::default().fg(theme.accent())),
             )
             .alignment(Alignment::Left);
 
-        domain.render(layout[0], &mut buffer);
+        domain_paragraph.render(layout[0], &mut buffer);
         Input::render(&mut buffer, layout[1], &password_config);
         Button::render(&mut buffer, inner_layout[0], &quit_config);
         Button::render(&mut buffer, inner_layout[1], &confirm_config);
@@ -242,7 +248,8 @@ impl Popup for InsertPassword {
                         self.cursor = 0;
                         self.input_offset = 0;
                     } else {
-                        let config = self.generate_input_config();
+                        let theme = app.theme();
+                        let config = self.generate_input_config(theme);
                         let (value, cursor_position, input_offset) =
                             Input::handle_key(key, &config, self.password().as_str());
                         self.password = value;
@@ -254,7 +261,8 @@ impl Popup for InsertPassword {
                     if key.modifiers.contains(KeyModifiers::CONTROL) {
                         self.hidden_password = !self.hidden_password;
                     } else {
-                        let config = self.generate_input_config();
+                        let theme = app.theme();
+                        let config = self.generate_input_config(theme);
                         let (value, cursor_position, input_offset) =
                             Input::handle_key(key, &config, self.password().as_str());
                         self.password = value;
@@ -268,7 +276,8 @@ impl Popup for InsertPassword {
                     poped = true;
                 }
                 _ => {
-                    let config = self.generate_input_config();
+                    let theme = app.theme();
+                    let config = self.generate_input_config(theme);
                     let (value, cursor_position, input_offset) =
                         Input::handle_key(key, &config, self.password().as_str());
                     self.password = value;

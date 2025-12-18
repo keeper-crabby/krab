@@ -75,29 +75,31 @@ impl StartUp {
     ///
     /// # Arguments
     /// * `button` - The button
+    /// * `theme` - The theme to use for styling
     ///
     /// # Returns
     /// A button config
-    fn generate_button_config(&self, button: StartUpButton) -> ButtonConfig {
+    fn generate_button_config<'a>(&self, button: StartUpButton, theme: &'a crate::theme::Theme) -> ButtonConfig<'a> {
         match button {
             StartUpButton::Login => {
-                ButtonConfig::new(self.state == StartUpState::Login, "Login".to_string())
+                ButtonConfig::new(self.state == StartUpState::Login, "Login".to_string(), theme)
             }
             StartUpButton::Register => {
-                ButtonConfig::new(self.state == StartUpState::Register, "Register".to_string())
+                ButtonConfig::new(self.state == StartUpState::Register, "Register".to_string(), theme)
             }
             StartUpButton::Settings => {
-                ButtonConfig::new(self.state == StartUpState::Settings, "Settings".to_string())
+                ButtonConfig::new(self.state == StartUpState::Settings, "Settings".to_string(), theme)
             }
             StartUpButton::Quit => {
-                ButtonConfig::new(self.state == StartUpState::Quit, "Quit".to_string())
+                ButtonConfig::new(self.state == StartUpState::Quit, "Quit".to_string(), theme)
             }
         }
     }
 }
 
 impl View for StartUp {
-    fn render(&self, f: &mut Frame, _app: &Application, rect: Rect) {
+    fn render(&self, f: &mut Frame, app: &Application, rect: Rect) {
+        let theme = app.theme();
         let height = 4 * ButtonConfig::height();
         let width = InputConfig::default_width();
         let rect = centered_absolute_rect(rect, width, height);
@@ -111,10 +113,10 @@ impl View for StartUp {
             ])
             .split(rect);
 
-        let login_config = self.generate_button_config(StartUpButton::Login);
-        let register_config = self.generate_button_config(StartUpButton::Register);
-        let settings_config = self.generate_button_config(StartUpButton::Settings);
-        let quit_config = self.generate_button_config(StartUpButton::Quit);
+        let login_config = self.generate_button_config(StartUpButton::Login, theme);
+        let register_config = self.generate_button_config(StartUpButton::Register, theme);
+        let settings_config = self.generate_button_config(StartUpButton::Settings, theme);
+        let quit_config = self.generate_button_config(StartUpButton::Quit, theme);
         let mut buffer = f.buffer_mut();
 
         Button::render(&mut buffer, layout[0], &login_config);

@@ -3,7 +3,7 @@ use directories::UserDirs;
 use ratatui::{
     crossterm::event::{KeyCode, KeyEvent},
     prelude::{Buffer, Rect},
-    style::{Color, Style},
+    style::Style,
     text::Text,
     widgets::Widget,
     Frame,
@@ -14,7 +14,6 @@ use crate::{
         input::{Input, InputConfig},
         scrollable_view::ScrollView,
     },
-    from,
     popups::{
         insert_domain_password::{InsertDomainPassword, InsertDomainPasswordExitState},
         insert_master::{InsertMaster, InsertMasterExitState},
@@ -22,8 +21,9 @@ use crate::{
         message::MessagePopup,
         Popup,
     },
+    theme::Theme,
     views::{login::Login, View},
-    Application, ViewState, COLOR_BLACK, COLOR_ORANGE, COLOR_WHITE,
+    Application, ViewState,
 };
 use chrono;
 use krab_backend::user::{ReadOnlyRecords, RecordOperationConfig, User};
@@ -234,9 +234,12 @@ impl Home {
 
     /// Returns the input config for the popup
     ///
+    /// # Arguments
+    /// * `theme` - The theme to use for styling
+    ///
     /// # Returns
     /// The input config for the popup
-    fn generate_input_config(&self) -> InputConfig {
+    fn generate_input_config<'a>(&self, theme: &'a Theme) -> InputConfig<'a> {
         InputConfig::new(
             self.state == HomeViewState::Filter,
             self.filter_value(),
@@ -249,6 +252,7 @@ impl Home {
             },
             self.input_offset,
             Some(FILTER_INPUT_WIDTH),
+            theme,
         )
     }
 
@@ -431,12 +435,13 @@ impl Home {
     ///
     /// # Arguments
     /// * `area` - The area
-    fn down(&mut self, area: Rect) {
+    /// * `theme` - The theme
+    fn down(&mut self, area: Rect, theme: &Theme) {
         let current_selected_secret = self.secrets.last().unwrap().selected_secret;
         if current_selected_secret == self.secrets.last().unwrap().secrets.len() - 1
             || current_selected_secret == self.secrets.last().unwrap().secrets.len() - 2
         {
-            self.scroll_to_bottom(area);
+            self.scroll_to_bottom(area, theme);
             return;
         }
         self.set_selected_secret(
@@ -450,10 +455,11 @@ impl Home {
     ///
     /// # Arguments
     /// * `area` - The area
-    fn scroll_to_bottom(&mut self, area: Rect) {
+    /// * `theme` - The theme
+    fn scroll_to_bottom(&mut self, area: Rect, theme: &Theme) {
         let (_, inner_buffer_height) = ScrollView::inner_buffer_bounding_box(area);
         let max_offset_y =
-            self.buffer_to_render().area().height as i32 - inner_buffer_height as i32 + 1;
+            self.buffer_to_render(theme).area().height as i32 - inner_buffer_height as i32 + 1;
         let max_offset_y = if max_offset_y < 0 { 0 } else { max_offset_y };
         let max_offset_y = max_offset_y as u16;
         self.secrets.last_mut().unwrap().selected_secret =
@@ -525,18 +531,16 @@ impl Home {
     ///
     /// # Arguments
     /// * `width` - The width of the separator
+    /// * `theme` - The theme to use for styling
     ///
     /// # Returns
     /// A ascii separator
-    fn separator(&self, width: u16) -> Text {
+    fn separator(&self, width: u16, theme: &Theme) -> Text {
         let mut separator = String::new();
         for _ in 0..width {
             separator.push_str("╍");
         }
-        Text::styled(
-            separator,
-            Style::default().fg(from(COLOR_ORANGE).unwrap_or(Color::Yellow)),
-        )
+        Text::styled(separator, Style::default().fg(theme.accent()))
     }
 
     /// Returns the current secret cursor
@@ -589,21 +593,22 @@ impl Home {
     /// * `buffer` - The mutable buffer to render to
     /// * `cursor_offset` - The cursor offset
     /// * `y_offset` - The y offset
-    fn render_secrets(&self, buffer: &mut Buffer, cursor_offset: u16, y_offset: u16) {
+    /// * `theme` - The theme to use for styling
+    fn render_secrets(&self, buffer: &mut Buffer, cursor_offset: u16, y_offset: u16, theme: &Theme) {
         let mut y = y_offset;
         let mut index = 0;
         let width = self.width();
         for secret in self.secrets.last().unwrap().secrets.iter() {
             let style = if self.secrets.last().unwrap().selected_secret == index {
                 Style::default()
-                    .bg(from(COLOR_WHITE).unwrap_or(Color::White))
-                    .fg(from(COLOR_BLACK).unwrap_or(Color::Black))
+                    .bg(theme.fg())
+                    .fg(theme.contrast())
             } else {
-                Style::default().fg(from(COLOR_WHITE).unwrap_or(Color::White))
+                Style::default().fg(theme.fg())
             };
             let cursor = self.current_secret_cursor(3, cursor_offset, index as u16, style);
             if index == 0 {
-                let separator = self.separator(buffer.area().width);
+                let separator = self.separator(buffer.area().width, theme);
                 separator.render(Rect::new(cursor_offset, y, width, 1), buffer);
                 cursor.render(Rect::new(0, y + 1, cursor_offset, 3), buffer);
                 y += 1;
@@ -618,7 +623,7 @@ impl Home {
             let text = Text::styled(text, style);
             text.render(Rect::new(cursor_offset, y, width, 3), buffer);
             y += 3;
-            let separator = self.separator(buffer.area().width);
+            let separator = self.separator(buffer.area().width, theme);
             separator.render(Rect::new(cursor_offset, y, width, 1), buffer);
             y += 1;
             index += 1;
@@ -632,20 +637,18 @@ impl Home {
     /// * `buffer` - The mutable buffer to render to
     /// * `area` - The area
     /// * `cursor_offset` - The cursor offset
+    /// * `theme` - The theme to use for styling
     ///
     /// # Returns
     /// The cursor offset
-    fn render_header(&self, buffer: &mut Buffer, area: Rect, cursor_offset: u16) -> u16 {
+    fn render_header(&self, buffer: &mut Buffer, area: Rect, cursor_offset: u16, theme: &Theme) -> u16 {
         let mut username = self.user.username().clone();
         username.truncate(MAX_ENTRY_LENGTH as usize - cursor_offset as usize - "Welcome ".len());
         let text = " ".repeat(cursor_offset as usize) + "Welcome " + username.as_str();
-        let header = Text::styled(
-            text,
-            Style::default().fg(from(COLOR_WHITE).unwrap_or(Color::White)),
-        );
+        let header = Text::styled(text, Style::default().fg(theme.fg()));
         header.render(Rect::new(0, 0, area.width, 1), buffer);
 
-        let separator = self.separator(buffer.area().width);
+        let separator = self.separator(buffer.area().width, theme);
         separator.render(Rect::new(cursor_offset, 1, self.width(), 1), buffer);
 
         self.header_height()
@@ -665,6 +668,8 @@ impl Home {
     /// * `buffer` - The mutable buffer to render to
     /// * `area` - The area
     /// * `cursor_offset` - The cursor offset
+    /// * `y_offset` - The y offset
+    /// * `theme` - The theme to use for styling
     ///
     /// # Returns
     /// The y offset
@@ -674,15 +679,13 @@ impl Home {
         area: Rect,
         cursor_offset: u16,
         y_offset: u16,
+        theme: &Theme,
     ) -> u16 {
         let text = " ".repeat(cursor_offset as usize) + LEGEND_TEXT;
-        let legend = Text::styled(
-            text,
-            Style::default().fg(from(COLOR_WHITE).unwrap_or(Color::White)),
-        );
+        let legend = Text::styled(text, Style::default().fg(theme.fg()));
         legend.render(Rect::new(0, y_offset, area.width, 1), buffer);
 
-        let separator = self.separator(buffer.area().width);
+        let separator = self.separator(buffer.area().width, theme);
         separator.render(
             Rect::new(cursor_offset, y_offset + 1, self.width(), 1),
             buffer,
@@ -701,9 +704,12 @@ impl Home {
 
     /// Returns the buffer to render
     ///
+    /// # Arguments
+    /// * `theme` - The theme to use for styling
+    ///
     /// # Returns
     /// The buffer to render
-    fn buffer_to_render(&self) -> Buffer {
+    fn buffer_to_render(&self, theme: &Theme) -> Buffer {
         let cursor_offset = 4;
         let secrets_count = self.secrets.last().unwrap().secrets.len();
         let rect = Rect::new(
@@ -716,9 +722,9 @@ impl Home {
                 + InputConfig::height(),
         );
         let mut buffer = Buffer::empty(rect);
-        let y_offset_header = self.render_header(&mut buffer, rect, cursor_offset);
-        let y_offset_legend = self.render_legend(&mut buffer, rect, cursor_offset, y_offset_header);
-        let input_config = self.generate_input_config();
+        let y_offset_header = self.render_header(&mut buffer, rect, cursor_offset, theme);
+        let y_offset_legend = self.render_legend(&mut buffer, rect, cursor_offset, y_offset_header, theme);
+        let input_config = self.generate_input_config(theme);
         let input_rect = Rect::new(
             cursor_offset,
             y_offset_header + y_offset_legend,
@@ -730,6 +736,7 @@ impl Home {
             &mut buffer,
             cursor_offset,
             y_offset_header + y_offset_legend + InputConfig::height(),
+            theme,
         );
 
         buffer
@@ -779,9 +786,10 @@ impl View for Home {
     fn render(&self, f: &mut Frame, app: &Application, area: Rect) {
         match app.immutable_app_state.rect {
             Some(_) => {
+                let theme = app.theme();
                 let mut buffer = f.buffer_mut();
-                let buffer_to_render = self.buffer_to_render();
-                ScrollView::render(&mut buffer, &self.position, area, &buffer_to_render);
+                let buffer_to_render = self.buffer_to_render(theme);
+                ScrollView::render(&mut buffer, &self.position, area, &buffer_to_render, theme);
             }
             None => {}
         }
@@ -790,6 +798,7 @@ impl View for Home {
     fn handle_key(&mut self, key: &KeyEvent, app: &Application) -> Application {
         let mut app = app.clone();
         let mut change_state = false;
+        let theme = app.theme();
 
         match self.state {
             HomeViewState::Normal => match key.code {
@@ -798,7 +807,7 @@ impl View for Home {
                     change_state = true;
                 }
                 KeyCode::Char('j') | KeyCode::Down => {
-                    self.down(app.immutable_app_state.rect.unwrap());
+                    self.down(app.immutable_app_state.rect.unwrap(), theme);
                 }
                 KeyCode::Char('k') | KeyCode::Up => {
                     self.up(app.immutable_app_state.rect.unwrap());
@@ -811,7 +820,7 @@ impl View for Home {
                 KeyCode::Char('l') | KeyCode::Right => {
                     if !ScrollView::check_if_width_out_of_bounds(
                         &self.position,
-                        &self.buffer_to_render(),
+                        &self.buffer_to_render(theme),
                         app.immutable_app_state.rect.unwrap_or(self.area),
                     ) {
                         self.position.offset_x += 1;
@@ -896,7 +905,8 @@ impl View for Home {
                 }
                 _ => {
                     let previous_value = self.filter_value.clone();
-                    let config = self.generate_input_config();
+                    let theme = app.theme();
+                    let config = self.generate_input_config(theme);
                     let (value, cursor_position, input_offset) =
                         Input::handle_key(key, &config, previous_value.as_str());
                     self.filter_value = value;

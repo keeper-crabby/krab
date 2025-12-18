@@ -1,12 +1,12 @@
 use ratatui::{
     buffer::Cell,
     prelude::{Buffer, Position as RatatuiPosition, Rect},
-    style::{Color, Style},
+    style::Style,
     widgets::Block,
     widgets::{Borders, Widget},
 };
 
-use crate::{centered_absolute_rect, from, views::home::Position, COLOR_ORANGE, COLOR_WHITE};
+use crate::{centered_absolute_rect, theme::Theme, views::home::Position};
 
 /// Represents a scrollable view
 ///
@@ -62,9 +62,16 @@ impl ScrollView {
     /// * `position` - The position
     /// * `area` - The area
     /// * `buffer_to_render` - The buffer to render
-    pub fn render(buffer: &mut Buffer, position: &Position, area: Rect, buffer_to_render: &Buffer) {
-        let area = ScrollView::render_borders(buffer, area);
-        let area = ScrollView::render_scrollbars(buffer, position, area, buffer_to_render);
+    /// * `theme` - The theme to use for styling
+    pub fn render(
+        buffer: &mut Buffer,
+        position: &Position,
+        area: Rect,
+        buffer_to_render: &Buffer,
+        theme: &Theme,
+    ) {
+        let area = ScrollView::render_borders(buffer, area, theme);
+        let area = ScrollView::render_scrollbars(buffer, position, area, buffer_to_render, theme);
         ScrollView::render_view(buffer, position, area, buffer_to_render);
     }
 
@@ -73,13 +80,14 @@ impl ScrollView {
     /// # Arguments
     /// * `buffer` - The mutable buffer to render to
     /// * `area` - The area
+    /// * `theme` - The theme to use for styling
     ///
     /// # Returns
     /// The inner area
-    fn render_borders(buffer: &mut Buffer, area: Rect) -> Rect {
+    fn render_borders(buffer: &mut Buffer, area: Rect, theme: &Theme) -> Rect {
         let b = Block::default()
             .borders(Borders::ALL)
-            .style(Style::default().fg(from(COLOR_ORANGE).unwrap_or(Color::White)));
+            .style(Style::default().fg(theme.accent()));
 
         b.render(area, buffer);
 
@@ -93,6 +101,7 @@ impl ScrollView {
     /// * `position` - The position
     /// * `area` - The area
     /// * `buffer_to_render` - The buffer to render
+    /// * `theme` - The theme to use for styling
     ///
     /// # Returns
     /// The inner area
@@ -101,6 +110,7 @@ impl ScrollView {
         position: &Position,
         area: Rect,
         buffer_to_render: &Buffer,
+        theme: &Theme,
     ) -> Rect {
         let scrollbar_x_start = area.x;
         let scrollbar_x_end = area.x + area.width;
@@ -113,22 +123,22 @@ impl ScrollView {
                 || i == scrollbar_x_end - 4
             {
                 buffer[(i, scrollbar_y_end - 1)] = Cell::new("█")
-                    .set_style(Style::default().fg(from(COLOR_ORANGE).unwrap_or(Color::Yellow)))
+                    .set_style(Style::default().fg(theme.accent()))
                     .clone();
             } else {
                 buffer[(i, scrollbar_y_end - 1)] = Cell::new("━")
-                    .set_style(Style::default().fg(from(COLOR_WHITE).unwrap_or(Color::White)))
+                    .set_style(Style::default().fg(theme.fg()))
                     .clone();
             }
         }
         for i in scrollbar_y_start..scrollbar_y_end - 1 {
             if i == scrollbar_y_start || i == scrollbar_y_end - 2 {
                 buffer[(scrollbar_x_end - 2, i)] = Cell::new("██")
-                    .set_style(Style::default().fg(from(COLOR_ORANGE).unwrap_or(Color::Yellow)))
+                    .set_style(Style::default().fg(theme.accent()))
                     .clone();
             } else {
                 buffer[(scrollbar_x_end - 2, i)] = Cell::new("║║")
-                    .set_style(Style::default().fg(from(COLOR_WHITE).unwrap_or(Color::White)))
+                    .set_style(Style::default().fg(theme.fg()))
                     .clone();
             }
         }
@@ -155,7 +165,7 @@ impl ScrollView {
 
             for i in scrollbar_x_position_start as u16..scrollbar_x_position_end as u16 {
                 buffer[(i, scrollbar_y_end - 1)] = Cell::new("▒")
-                    .set_style(Style::default().fg(from(COLOR_ORANGE).unwrap_or(Color::Yellow)))
+                    .set_style(Style::default().fg(theme.accent()))
                     .clone();
             }
         }
@@ -170,14 +180,14 @@ impl ScrollView {
 
             for i in scrollbar_y_position_start as u16..scrollbar_y_position_end as u16 {
                 buffer[(scrollbar_x_end - 2, i)] = Cell::new("▒▒")
-                    .set_style(Style::default().fg(from(COLOR_ORANGE).unwrap_or(Color::Yellow)))
+                    .set_style(Style::default().fg(theme.accent()))
                     .clone();
             }
         }
 
         let bottom_right_corner = "  ";
         buffer[(scrollbar_x_end - 2, scrollbar_y_end - 1)] = Cell::new(bottom_right_corner)
-            .set_style(Style::default().fg(Color::Reset))
+            .set_style(Style::default())
             .clone();
 
         Rect::new(

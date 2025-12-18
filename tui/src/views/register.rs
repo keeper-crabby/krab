@@ -138,10 +138,11 @@ impl Register {
     ///
     /// # Arguments
     /// * `input` - The input
+    /// * `theme` - The theme to use for styling
     ///
     /// # Returns
     /// An input configuration
-    fn generate_input_config(&self, input: RegisterInput) -> InputConfig {
+    fn generate_input_config<'a>(&self, input: RegisterInput, theme: &'a crate::theme::Theme) -> InputConfig<'a> {
         match input {
             RegisterInput::Username => InputConfig::new(
                 self.state == RegisterState::Username,
@@ -158,6 +159,7 @@ impl Register {
                     .unwrap()
                     .clone(),
                 None,
+                theme,
             ),
             RegisterInput::MasterPassword => InputConfig::new(
                 self.state == RegisterState::MasterPassword,
@@ -179,6 +181,7 @@ impl Register {
                     .unwrap()
                     .clone(),
                 None,
+                theme,
             ),
             RegisterInput::ConfirmMasterPassword => InputConfig::new(
                 self.state == RegisterState::ConfirmMasterPassword,
@@ -200,6 +203,7 @@ impl Register {
                     .unwrap()
                     .clone(),
                 None,
+                theme,
             ),
         }
     }
@@ -208,23 +212,25 @@ impl Register {
     ///
     /// # Arguments
     /// * `button` - The button
+    /// * `theme` - The theme to use for styling
     ///
     /// # Returns
     /// A button configuration
-    fn generate_button_config(&self, button: RegisterButton) -> ButtonConfig {
+    fn generate_button_config<'a>(&self, button: RegisterButton, theme: &'a crate::theme::Theme) -> ButtonConfig<'a> {
         match button {
             RegisterButton::Confirm => {
-                ButtonConfig::new(self.state == RegisterState::Confirm, "Confirm".to_string())
+                ButtonConfig::new(self.state == RegisterState::Confirm, "Confirm".to_string(), theme)
             }
             RegisterButton::Quit => {
-                ButtonConfig::new(self.state == RegisterState::Quit, "Quit".to_string())
+                ButtonConfig::new(self.state == RegisterState::Quit, "Quit".to_string(), theme)
             }
         }
     }
 }
 
 impl View for Register {
-    fn render(&self, f: &mut Frame, _app: &Application, rect: Rect) {
+    fn render(&self, f: &mut Frame, app: &Application, rect: Rect) {
+        let theme = app.theme();
         let height = 3 * InputConfig::height() + ButtonConfig::height();
         let width = InputConfig::default_width();
         let rect = centered_absolute_rect(rect, width, height);
@@ -243,12 +249,12 @@ impl View for Register {
             .constraints(vec![Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)])
             .split(layout[3]);
 
-        let username_config = self.generate_input_config(RegisterInput::Username);
-        let master_password_config = self.generate_input_config(RegisterInput::MasterPassword);
+        let username_config = self.generate_input_config(RegisterInput::Username, theme);
+        let master_password_config = self.generate_input_config(RegisterInput::MasterPassword, theme);
         let confirm_master_password_config =
-            self.generate_input_config(RegisterInput::ConfirmMasterPassword);
-        let confirm_config = self.generate_button_config(RegisterButton::Confirm);
-        let quit_config = self.generate_button_config(RegisterButton::Quit);
+            self.generate_input_config(RegisterInput::ConfirmMasterPassword, theme);
+        let confirm_config = self.generate_button_config(RegisterButton::Confirm, theme);
+        let quit_config = self.generate_button_config(RegisterButton::Quit, theme);
         let mut buffer = f.buffer_mut();
 
         Input::render(&mut buffer, layout[0], &username_config);
@@ -275,7 +281,8 @@ impl View for Register {
                     change_state = true;
                 }
                 _ => {
-                    let config = self.generate_input_config(RegisterInput::Username);
+                    let theme = app.theme();
+                    let config = self.generate_input_config(RegisterInput::Username, theme);
                     let (value, cursor_position, input_offset) =
                         Input::handle_key(key, &config, self.username.as_str());
                     self.username = value;
@@ -296,7 +303,8 @@ impl View for Register {
                     if key.modifiers.contains(KeyModifiers::CONTROL) {
                         self.hidden_password = !self.hidden_password;
                     } else {
-                        let config = self.generate_input_config(RegisterInput::MasterPassword);
+                        let theme = app.theme();
+                        let config = self.generate_input_config(RegisterInput::MasterPassword, theme);
                         let (value, cursor_position, input_offset) =
                             Input::handle_key(key, &config, self.master_password.as_str());
                         self.master_password = value;
@@ -311,7 +319,8 @@ impl View for Register {
                     change_state = true;
                 }
                 _ => {
-                    let config = self.generate_input_config(RegisterInput::MasterPassword);
+                    let theme = app.theme();
+                    let config = self.generate_input_config(RegisterInput::MasterPassword, theme);
                     let (value, cursor_position, input_offset) =
                         Input::handle_key(key, &config, self.master_password.as_str());
                     self.master_password = value;
@@ -332,7 +341,8 @@ impl View for Register {
                     if key.modifiers.contains(KeyModifiers::CONTROL) {
                         self.hidden_confirm_password = !self.hidden_confirm_password;
                     } else {
-                        let config = self.generate_input_config(RegisterInput::ConfirmMasterPassword);
+                        let theme = app.theme();
+                        let config = self.generate_input_config(RegisterInput::ConfirmMasterPassword, theme);
                         let (value, cursor_position, input_offset) =
                             Input::handle_key(key, &config, self.confirm_master_password.as_str());
                         self.confirm_master_password = value;
@@ -347,7 +357,8 @@ impl View for Register {
                     change_state = true;
                 }
                 _ => {
-                    let config = self.generate_input_config(RegisterInput::ConfirmMasterPassword);
+                    let theme = app.theme();
+                    let config = self.generate_input_config(RegisterInput::ConfirmMasterPassword, theme);
                     let (value, cursor_position, input_offset) =
                         Input::handle_key(key, &config, self.confirm_master_password.as_str());
                     self.confirm_master_password = value;

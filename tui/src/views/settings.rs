@@ -1,7 +1,7 @@
 use ratatui::{
     crossterm::event::{KeyCode, KeyEvent},
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
+    style::Style,
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, Paragraph},
     Frame,
@@ -10,9 +10,9 @@ use ratatui::{
 use krab_backend::Config;
 
 use crate::{
-    from,
+    theme::{BuiltinTheme, ThemeConfig},
     views::{startup::StartUp, View, ViewState},
-    Application, COLOR_ORANGE, COLOR_WHITE,
+    Application,
 };
 
 /// Represents the settings options
@@ -20,12 +20,14 @@ use crate::{
 /// # Variants
 /// * `IncludeNumbers` - Include numbers in password generation
 /// * `IncludeSpecialChars` - Include special characters in password generation
+/// * `ThemeSelection` - Select the theme
 /// * `Save` - Save the current settings
 /// * `Back` - Go back to startup
 #[derive(Debug, Clone, PartialEq)]
 enum SettingsOption {
     IncludeNumbers,
     IncludeSpecialChars,
+    ThemeSelection,
     Save,
     Back,
 }
@@ -37,6 +39,9 @@ enum SettingsOption {
 /// * `config` - The password configuration to modify
 /// * `original_config` - The original configuration to compare against for unsaved changes
 /// * `has_unsaved_changes` - Whether there are unsaved changes
+/// * `selected_theme_index` - The index of the currently selected theme
+/// * `available_themes` - The list of available built-in themes
+/// * `original_theme_index` - The original theme index for detecting changes
 ///
 /// # Methods
 /// * `new` - Creates a new `Settings` view
@@ -49,6 +54,9 @@ pub struct Settings {
     config: Config,
     original_config: Config,
     has_unsaved_changes: bool,
+    selected_theme_index: usize,
+    available_themes: Vec<BuiltinTheme>,
+    original_theme_index: usize,
 }
 
 impl Settings {
@@ -58,21 +66,45 @@ impl Settings {
     /// A new `Settings`
     pub fn new() -> Self {
         let config = Config::load().unwrap_or_default();
+        let available_themes = BuiltinTheme::all();
+
+        // Determine current theme index from config
+        let current_theme_config: ThemeConfig = config
+            .theme
+            .clone()
+            .and_then(|v| serde_json::from_value(v).ok())
+            .unwrap_or_default();
+
+        let selected_theme_index = match current_theme_config {
+            ThemeConfig::Builtin(builtin) => available_themes
+                .iter()
+                .position(|t| *t == builtin)
+                .unwrap_or(0),
+            ThemeConfig::Custom(_) => 0, // Default to first for custom
+        };
+
         Settings {
             selected_option: SettingsOption::IncludeNumbers,
             config: config.clone(),
             original_config: config.clone(),
             has_unsaved_changes: false,
+            selected_theme_index,
+            available_themes,
+            original_theme_index: selected_theme_index,
         }
     }
 
     /// Updates the unsaved changes flag by comparing current config with original
     fn update_unsaved_changes(&mut self) {
-        self.has_unsaved_changes = self.config != self.original_config;
+        self.has_unsaved_changes = self.config != self.original_config
+            || self.selected_theme_index != self.original_theme_index;
     }
 
     /// Gets the list of settings items for rendering
-    fn get_settings_items(&self) -> Vec<ListItem> {
+    fn get_settings_items(&self, app: &Application) -> Vec<ListItem> {
+        let theme = app.theme();
+        let current_theme_name = self.available_themes[self.selected_theme_index].name();
+
         vec![
             ListItem::new(Line::from(vec![Span::styled(
                 format!(
@@ -84,9 +116,9 @@ impl Settings {
                     }
                 ),
                 if self.selected_option == SettingsOption::IncludeNumbers {
-                    Style::default().fg(Color::Yellow)
+                    Style::default().fg(theme.accent())
                 } else {
-                    Style::default().fg(Color::White)
+                    Style::default().fg(theme.fg())
                 },
             )])),
             ListItem::new(Line::from(vec![Span::styled(
@@ -99,25 +131,33 @@ impl Settings {
                     }
                 ),
                 if self.selected_option == SettingsOption::IncludeSpecialChars {
-                    Style::default().fg(Color::Yellow)
+                    Style::default().fg(theme.accent())
                 } else {
-                    Style::default().fg(Color::White)
+                    Style::default().fg(theme.fg())
+                },
+            )])),
+            ListItem::new(Line::from(vec![Span::styled(
+                format!("Theme: < {} >", current_theme_name),
+                if self.selected_option == SettingsOption::ThemeSelection {
+                    Style::default().fg(theme.accent())
+                } else {
+                    Style::default().fg(theme.fg())
                 },
             )])),
             ListItem::new(Line::from(vec![Span::styled(
                 "Save Settings",
                 if self.selected_option == SettingsOption::Save {
-                    Style::default().fg(Color::Yellow)
+                    Style::default().fg(theme.accent())
                 } else {
-                    Style::default().fg(Color::White)
+                    Style::default().fg(theme.fg())
                 },
             )])),
             ListItem::new(Line::from(vec![Span::styled(
                 "< Back",
                 if self.selected_option == SettingsOption::Back {
-                    Style::default().fg(Color::Yellow)
+                    Style::default().fg(theme.accent())
                 } else {
-                    Style::default().fg(Color::White)
+                    Style::default().fg(theme.fg())
                 },
             )])),
         ]
@@ -125,7 +165,9 @@ impl Settings {
 }
 
 impl View for Settings {
-    fn render(&self, f: &mut Frame, _app: &Application, rect: Rect) {
+    fn render(&self, f: &mut Frame, app: &Application, rect: Rect) {
+        let theme = app.theme();
+
         // Create main layout
         let chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -143,27 +185,27 @@ impl View for Settings {
             "Settings"
         };
         let title = Paragraph::new(title_text)
-            .style(Style::default().fg(from(COLOR_ORANGE).unwrap_or(Color::Yellow)))
+            .style(Style::default().fg(theme.accent()))
             .block(Block::default().borders(Borders::ALL));
         f.render_widget(title, chunks[0]);
 
         // Settings list
-        let settings_items = self.get_settings_items();
+        let settings_items = self.get_settings_items(app);
         let settings_list = List::new(settings_items)
             .block(
                 Block::default()
                     .borders(Borders::ALL)
-                    .title("Password Generation"),
+                    .title("Settings"),
             )
-            .style(Style::default().fg(from(COLOR_WHITE).unwrap_or(Color::Yellow)));
+            .style(Style::default().fg(theme.fg()));
 
         f.render_widget(settings_list, chunks[1]);
 
         // Instructions
         let instructions = Paragraph::new(
-            "j/k - navigate | Space/Enter - toggle/select | * = unsaved changes | q/Esc - back",
+            "j/k - navigate | Space/Enter - toggle/select | h/l - change theme | * = unsaved | q/Esc - back",
         )
-        .style(Style::default().fg(Color::Gray))
+        .style(Style::default().fg(theme.fg()))
         .block(Block::default().borders(Borders::ALL));
         f.render_widget(instructions, chunks[2]);
     }
@@ -176,7 +218,8 @@ impl View for Settings {
             KeyCode::Down | KeyCode::Char('j') => {
                 self.selected_option = match self.selected_option {
                     SettingsOption::IncludeNumbers => SettingsOption::IncludeSpecialChars,
-                    SettingsOption::IncludeSpecialChars => SettingsOption::Save,
+                    SettingsOption::IncludeSpecialChars => SettingsOption::ThemeSelection,
+                    SettingsOption::ThemeSelection => SettingsOption::Save,
                     SettingsOption::Save => SettingsOption::Back,
                     SettingsOption::Back => SettingsOption::IncludeNumbers,
                 };
@@ -185,9 +228,27 @@ impl View for Settings {
                 self.selected_option = match self.selected_option {
                     SettingsOption::IncludeNumbers => SettingsOption::Back,
                     SettingsOption::IncludeSpecialChars => SettingsOption::IncludeNumbers,
-                    SettingsOption::Save => SettingsOption::IncludeSpecialChars,
+                    SettingsOption::ThemeSelection => SettingsOption::IncludeSpecialChars,
+                    SettingsOption::Save => SettingsOption::ThemeSelection,
                     SettingsOption::Back => SettingsOption::Save,
                 };
+            }
+            KeyCode::Left | KeyCode::Char('h') => {
+                if self.selected_option == SettingsOption::ThemeSelection {
+                    if self.selected_theme_index > 0 {
+                        self.selected_theme_index -= 1;
+                    } else {
+                        self.selected_theme_index = self.available_themes.len() - 1;
+                    }
+                    self.update_unsaved_changes();
+                }
+            }
+            KeyCode::Right | KeyCode::Char('l') => {
+                if self.selected_option == SettingsOption::ThemeSelection {
+                    self.selected_theme_index =
+                        (self.selected_theme_index + 1) % self.available_themes.len();
+                    self.update_unsaved_changes();
+                }
             }
             KeyCode::Enter | KeyCode::Char(' ') => match self.selected_option {
                 SettingsOption::IncludeNumbers => {
@@ -200,10 +261,24 @@ impl View for Settings {
                         !self.config.password_config.include_special;
                     self.update_unsaved_changes();
                 }
+                SettingsOption::ThemeSelection => {
+                    // Cycle through themes on Enter/Space as well
+                    self.selected_theme_index =
+                        (self.selected_theme_index + 1) % self.available_themes.len();
+                    self.update_unsaved_changes();
+                }
                 SettingsOption::Save => {
-                    // Save the password config and update original config
+                    // Save the theme config
+                    let theme_config =
+                        ThemeConfig::Builtin(self.available_themes[self.selected_theme_index]);
+                    self.config.theme = Some(serde_json::to_value(&theme_config).unwrap());
+
+                    // Save the config and update original config
                     if let Ok(()) = self.config.save() {
+                        // Update the live theme in Application
+                        app.set_theme(theme_config.resolve());
                         self.original_config = self.config.clone();
+                        self.original_theme_index = self.selected_theme_index;
                         self.has_unsaved_changes = false;
                     }
                 }

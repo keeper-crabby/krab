@@ -125,11 +125,14 @@ impl InsertMaster {
         )
     }
 
-    /// Returns the maximum area of the popup
+    /// Returns the input config for the popup
+    ///
+    /// # Arguments
+    /// * `theme` - The theme to use for styling
     ///
     /// # Returns
-    /// The maximum area of the popup
-    fn generate_input_config(&self) -> InputConfig {
+    /// The input config for the popup
+    fn generate_input_config<'a>(&self, theme: &'a crate::theme::Theme) -> InputConfig<'a> {
         InputConfig::new(
             self.state == InsertMasterState::Master,
             self.master(),
@@ -142,6 +145,7 @@ impl InsertMaster {
             },
             self.input_offset,
             None,
+            theme,
         )
     }
 
@@ -149,24 +153,27 @@ impl InsertMaster {
     ///
     /// # Arguments
     /// * `input` - The input
+    /// * `theme` - The theme to use for styling
     ///
     /// # Returns
     /// The button config for the given input
-    fn generate_button_config(&self, input: MasterPasswordButton) -> ButtonConfig {
+    fn generate_button_config<'a>(&self, input: MasterPasswordButton, theme: &'a crate::theme::Theme) -> ButtonConfig<'a> {
         match input {
             MasterPasswordButton::Confirm => ButtonConfig::new(
                 self.state == InsertMasterState::Confirm,
                 "Confirm".to_string(),
+                theme,
             ),
             MasterPasswordButton::Quit => {
-                ButtonConfig::new(self.state == InsertMasterState::Quit, "Quit".to_string())
+                ButtonConfig::new(self.state == InsertMasterState::Quit, "Quit".to_string(), theme)
             }
         }
     }
 }
 
 impl Popup for InsertMaster {
-    fn render(&self, f: &mut Frame, _app: &Application, rect: Rect) {
+    fn render(&self, f: &mut Frame, app: &Application, rect: Rect) {
+        let theme = app.theme();
         let height = InputConfig::height() + ButtonConfig::height();
         let width = InputConfig::default_width();
         let rect = centered_absolute_rect(rect, width, height);
@@ -183,10 +190,10 @@ impl Popup for InsertMaster {
             .constraints(vec![Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)])
             .split(layout[1]);
 
-        let master_config = self.generate_input_config();
+        let master_config = self.generate_input_config(theme);
 
-        let confirm_config = self.generate_button_config(MasterPasswordButton::Confirm);
-        let quit_config = self.generate_button_config(MasterPasswordButton::Quit);
+        let confirm_config = self.generate_button_config(MasterPasswordButton::Confirm, theme);
+        let quit_config = self.generate_button_config(MasterPasswordButton::Quit, theme);
         f.render_widget(Clear, rect);
         let mut buffer = f.buffer_mut();
 
@@ -212,7 +219,8 @@ impl Popup for InsertMaster {
                     if key.modifiers.contains(KeyModifiers::CONTROL) {
                         self.hidden_password = !self.hidden_password;
                     } else {
-                        let config = self.generate_input_config();
+                        let theme = app.theme();
+                        let config = self.generate_input_config(theme);
                         let (value, cursor_position, input_offset) =
                             Input::handle_key(key, &config, self.master().as_str());
                         self.master = value;
@@ -226,7 +234,8 @@ impl Popup for InsertMaster {
                     poped = true;
                 }
                 _ => {
-                    let config = self.generate_input_config();
+                    let theme = app.theme();
+                    let config = self.generate_input_config(theme);
                     let (value, cursor_position, input_offset) =
                         Input::handle_key(key, &config, self.master().as_str());
                     self.master = value;

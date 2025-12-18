@@ -160,10 +160,11 @@ impl InsertDomainPassword {
     ///
     /// # Arguments
     /// * `input` - The input to generate the config for
+    /// * `theme` - The theme to use for styling
     ///
     /// # Returns
     /// An `InputConfig` representing the input config for the popup
-    fn generate_input_config(&self, input: DomainPasswordInput) -> InputConfig {
+    fn generate_input_config<'a>(&self, input: DomainPasswordInput, theme: &'a crate::theme::Theme) -> InputConfig<'a> {
         match input {
             DomainPasswordInput::Domain => InputConfig::new(
                 self.state == InsertDomainPasswordState::Domain,
@@ -185,6 +186,7 @@ impl InsertDomainPassword {
                     .unwrap()
                     .clone(),
                 None,
+                theme,
             ),
             DomainPasswordInput::Password => InputConfig::new(
                 self.state == InsertDomainPasswordState::Password,
@@ -206,6 +208,7 @@ impl InsertDomainPassword {
                     .unwrap()
                     .clone(),
                 None,
+                theme,
             ),
         }
     }
@@ -214,25 +217,29 @@ impl InsertDomainPassword {
     ///
     /// # Arguments
     /// * `input` - The input to generate the config for
+    /// * `theme` - The theme to use for styling
     ///
     /// # Returns
     /// A `ButtonConfig` representing the button config for the popup
-    fn generate_button_config(&self, input: DomainPasswordButton) -> ButtonConfig {
+    fn generate_button_config<'a>(&self, input: DomainPasswordButton, theme: &'a crate::theme::Theme) -> ButtonConfig<'a> {
         match input {
             DomainPasswordButton::Confirm => ButtonConfig::new(
                 self.state == InsertDomainPasswordState::Confirm,
                 "Confirm".to_string(),
+                theme,
             ),
             DomainPasswordButton::Quit => ButtonConfig::new(
                 self.state == InsertDomainPasswordState::Quit,
                 "Quit".to_string(),
+                theme,
             ),
         }
     }
 }
 
 impl Popup for InsertDomainPassword {
-    fn render(&self, f: &mut Frame, _app: &Application, rect: Rect) {
+    fn render(&self, f: &mut Frame, app: &Application, rect: Rect) {
+        let theme = app.theme();
         let height = 2 * InputConfig::height() + ButtonConfig::height();
         let width = InputConfig::default_width();
         let rect = centered_absolute_rect(rect, width, height);
@@ -250,11 +257,11 @@ impl Popup for InsertDomainPassword {
             .constraints(vec![Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)])
             .split(layout[2]);
 
-        let domain_config = self.generate_input_config(DomainPasswordInput::Domain);
-        let password_config = self.generate_input_config(DomainPasswordInput::Password);
+        let domain_config = self.generate_input_config(DomainPasswordInput::Domain, theme);
+        let password_config = self.generate_input_config(DomainPasswordInput::Password, theme);
 
-        let confirm_config = self.generate_button_config(DomainPasswordButton::Confirm);
-        let quit_config = self.generate_button_config(DomainPasswordButton::Quit);
+        let confirm_config = self.generate_button_config(DomainPasswordButton::Confirm, theme);
+        let quit_config = self.generate_button_config(DomainPasswordButton::Quit, theme);
         f.render_widget(Clear, rect);
         let mut buffer = f.buffer_mut();
 
@@ -286,7 +293,8 @@ impl Popup for InsertDomainPassword {
                     poped = true;
                 }
                 _ => {
-                    let config = self.generate_input_config(DomainPasswordInput::Domain);
+                    let theme = app.theme();
+                    let config = self.generate_input_config(DomainPasswordInput::Domain, theme);
                     let (value, cursor_position, input_offset) =
                         Input::handle_key(key, &config, self.domain().as_str());
                     self.domain = value;
@@ -303,7 +311,8 @@ impl Popup for InsertDomainPassword {
                         self.cursors.insert(DomainPasswordInput::Password, 0);
                         self.input_offsets.insert(DomainPasswordInput::Password, 0);
                     } else {
-                        let config = self.generate_input_config(DomainPasswordInput::Password);
+                        let theme = app.theme();
+                        let config = self.generate_input_config(DomainPasswordInput::Password, theme);
                         let (value, cursor_position, input_offset) =
                             Input::handle_key(key, &config, self.password().as_str());
                         self.password = value;
@@ -317,7 +326,8 @@ impl Popup for InsertDomainPassword {
                     if key.modifiers.contains(KeyModifiers::CONTROL) {
                         self.hidden_password = !self.hidden_password;
                     } else {
-                        let config = self.generate_input_config(DomainPasswordInput::Password);
+                        let theme = app.theme();
+                        let config = self.generate_input_config(DomainPasswordInput::Password, theme);
                         let (value, cursor_position, input_offset) =
                             Input::handle_key(key, &config, self.password().as_str());
                         self.password = value;
@@ -339,7 +349,8 @@ impl Popup for InsertDomainPassword {
                     poped = true;
                 }
                 _ => {
-                    let config = self.generate_input_config(DomainPasswordInput::Password);
+                    let theme = app.theme();
+                    let config = self.generate_input_config(DomainPasswordInput::Password, theme);
                     let (value, cursor_position, input_offset) =
                         Input::handle_key(key, &config, self.password().as_str());
                     self.password = value;
