@@ -124,4 +124,23 @@ pub trait View {
     ) -> Application {
         unreachable!("This view does not handle insert password popups");
     }
+
+    /// Handles a confirm delete user popup
+    ///
+    /// # Arguments
+    /// * `app` - The application
+    /// * `popup` - The confirm delete user popup
+    ///
+    /// # Returns
+    /// The updated application
+    ///
+    /// # Panics
+    /// This function panics if called on a state that does not handle confirm delete user popups
+    fn handle_confirm_delete_user_popup(
+        &mut self,
+        _app: Application,
+        _popup: Box<dyn Popup>,
+    ) -> Application {
+        unreachable!("This view does not handle confirm delete user popups");
+    }
 }

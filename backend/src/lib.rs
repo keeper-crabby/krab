@@ -200,6 +200,25 @@ pub fn check_user(username: &str) -> bool {
     path.join(hashed_username).exists()
 }
 
+/// Deletes a user from the database
+///
+/// # Arguments
+/// * `username` - The username of the user to delete
+///
+/// # Returns
+/// `Ok(())` if the user was deleted successfully, otherwise an error message
+pub fn delete_user(username: &str) -> Result<(), String> {
+    let path = get_db_path();
+    let hashed_username = hash(username.to_string());
+    let file_path = path.join(hashed_username);
+
+    if !file_path.exists() {
+        return Err("User does not exist".to_string());
+    }
+
+    fs::remove_file(file_path).map_err(|e| e.to_string())
+}
+
 /// Creates a hash of the input data
 ///
 /// # Arguments

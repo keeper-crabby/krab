@@ -240,6 +240,12 @@ fn run_app<B: Backend>(
                             }
                             _ => {}
                         },
+                        PopupType::ConfirmDeleteUser => match &mut app.state {
+                            ViewState::Home(s) => {
+                                new_app = s.handle_confirm_delete_user_popup(new_app, last_state);
+                            }
+                            _ => {}
+                        },
                         _ => {}
                     }
 

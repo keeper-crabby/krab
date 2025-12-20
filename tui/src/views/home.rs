@@ -15,6 +15,7 @@ use crate::{
         scrollable_view::ScrollView,
     },
     popups::{
+        confirm_delete_user::{ConfirmDeleteUser, ConfirmDeleteUserExitState},
         insert_domain_password::{InsertDomainPassword, InsertDomainPasswordExitState},
         insert_master::{InsertMaster, InsertMasterExitState},
         insert_password::{InsertPassword, InsertPasswordExitState},
@@ -54,11 +55,13 @@ enum HomeViewState {
 /// * `Add` - The add operation
 /// * `Remove` - The remove operation
 /// * `Modify` - The modify operation
+/// * `DeleteUser` - The delete user operation
 #[derive(Debug, Clone, PartialEq)]
 enum Operation {
     Add,
     Remove,
     Modify,
+    DeleteUser,
 }
 
 /// Represents the position of the inner buffer
@@ -282,6 +285,7 @@ impl Home {
             "  e            Edit selected secret",
             "  c            Copy password to clipboard",
             "  Enter        Toggle password visibility",
+            "  D            Delete account",
             "",
             "OTHER:",
             "  f            Enter filter/search mode",
@@ -841,6 +845,12 @@ impl View for Home {
                         .push(Box::new(InsertMaster::new()));
                     self.operation = Some(Operation::Remove);
                 }
+                KeyCode::Char('D') => {
+                    app.mutable_app_state
+                        .popups
+                        .push(Box::new(ConfirmDeleteUser::new()));
+                    self.operation = Some(Operation::DeleteUser);
+                }
                 KeyCode::Char('e') => {
                     app.mutable_app_state
                         .popups
@@ -1145,6 +1155,38 @@ impl View for Home {
                 app.state = ViewState::Home(self.clone());
                 app
             }
+            Some(Operation::DeleteUser) => {
+                // Verify master password by attempting to load the user
+                let verify_result = User::from(&self.user.username(), &master_password);
+
+                if verify_result.is_err() {
+                    let mut app = app.clone();
+                    app.mutable_app_state
+                        .popups
+                        .push(Box::new(MessagePopup::new(
+                            "Invalid master password".to_string(),
+                        )));
+                    return app;
+                }
+
+                // Delete the user
+                let delete_result = krab_backend::delete_user(&self.user.username());
+
+                if delete_result.is_err() {
+                    let mut app = app.clone();
+                    app.mutable_app_state
+                        .popups
+                        .push(Box::new(MessagePopup::new(
+                            "Failed to delete account".to_string(),
+                        )));
+                    return app;
+                }
+
+                // Return to login screen
+                let mut app = app.clone();
+                app.state = ViewState::Login(Login::new());
+                app
+            }
         }
     }
 
@@ -1192,6 +1234,33 @@ impl View for Home {
             .push(Box::new(InsertMaster::new()));
 
         app
+    }
+
+    fn handle_confirm_delete_user_popup(
+        &mut self,
+        app: Application,
+        popup: Box<dyn Popup>,
+    ) -> Application {
+        let confirm_delete = popup.downcast::<ConfirmDeleteUser>();
+
+        match confirm_delete {
+            Ok(confirm_delete) => {
+                if confirm_delete.exit_state() == Some(ConfirmDeleteUserExitState::Quit) {
+                    self.operation = None;
+                    return app;
+                }
+                // User confirmed, show master password popup
+                let mut app = app.clone();
+                app.state = ViewState::Home(self.clone());
+                app.mutable_app_state
+                    .popups
+                    .push(Box::new(InsertMaster::new()));
+                app
+            }
+            Err(_) => {
+                unreachable!();
+            }
+        }
     }
 }
 
