@@ -8,7 +8,10 @@ use std::{
     io::{self, Read, Write},
     path::{Path, PathBuf},
     str,
+    sync::OnceLock,
 };
+
+static DB_PATH: OnceLock<PathBuf> = OnceLock::new();
 
 mod models;
 pub mod user;
@@ -141,15 +144,24 @@ impl Config {
     }
 }
 
-/// Initializes the project directories and returns the path to the data directory
-/// If the environment variable KRAB_DIR is set, the data directory will be created
-/// in the specified directory. Otherwise, the data directory will be created in the
-/// default directory.
+/// Initializes the project directories and stores the path internally
+/// If the environment variable KRAB_TEMP_DIR is set (for tests), that path is used directly.
+/// Otherwise, if KRAB_DIR is set, the data directory will be created in that subdirectory.
+/// Otherwise, the data directory will be created in the default "release" subdirectory.
 ///
 /// # Returns
-/// A `Result` containing the path to the data directory if successful, otherwise an
-/// `io::Error` is returned.
-pub fn init() -> Result<PathBuf, io::Error> {
+/// A `Result` indicating success or failure. The path can be retrieved via `get_db_path()`.
+pub fn init() -> Result<(), io::Error> {
+    // For tests: allow overriding the entire path
+    if let Ok(temp_dir) = env::var("KRAB_TEMP_DIR") {
+        let path = PathBuf::from(temp_dir);
+        if !path.is_dir() {
+            fs::create_dir_all(&path)?;
+        }
+        let _ = DB_PATH.set(path);
+        return Ok(());
+    }
+
     if let Some(proj_dirs) = ProjectDirs::from("", "", DB_DIR) {
         let sub_dir = env::var("KRAB_DIR").unwrap_or(RELEASE_SUFFIX.to_string());
         let proj_dirs = proj_dirs.data_dir().join(sub_dir);
@@ -157,27 +169,35 @@ pub fn init() -> Result<PathBuf, io::Error> {
             let res = create_if_not_exists(&proj_dirs);
             assert!(res.is_ok());
         }
-        Ok(proj_dirs.to_path_buf())
+        let _ = DB_PATH.set(proj_dirs.to_path_buf());
+        Ok(())
     } else {
         panic!("Could not get project directories");
     }
+}
+
+/// Returns the path to the data directory
+///
+/// # Panics
+/// Panics if `init()` has not been called
+pub fn get_db_path() -> &'static PathBuf {
+    DB_PATH
+        .get()
+        .expect("DB_PATH not initialized. Call init() first.")
 }
 
 /// Checks if a user exists in the database
 ///
 /// # Arguments
 /// * `username` - The username of the user
-/// * `path` - The path to the data directory
 ///
 /// # Returns
 ///
 /// `true` if the user exists, otherwise `false`
-pub fn check_user(username: &str, path: PathBuf) -> bool {
+pub fn check_user(username: &str) -> bool {
+    let path = get_db_path();
     let hashed_username = hash(username.to_string());
-    match path.join(hashed_username).exists() {
-        true => true,
-        false => false,
-    }
+    path.join(hashed_username).exists()
 }
 
 /// Creates a hash of the input data

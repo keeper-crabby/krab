@@ -132,7 +132,7 @@ impl View for StartUp {
         match self.state {
             StartUpState::Login => match key.code {
                 KeyCode::Enter => {
-                    app.state = ViewState::Login(Login::new(&app.immutable_app_state.db_path));
+                    app.state = ViewState::Login(Login::new());
                     change_state = true;
                 }
                 KeyCode::Down | KeyCode::Tab | KeyCode::Char('j') => {
@@ -148,8 +148,7 @@ impl View for StartUp {
             },
             StartUpState::Register => match key.code {
                 KeyCode::Enter => {
-                    app.state =
-                        ViewState::Register(Register::new(&app.immutable_app_state.db_path));
+                    app.state = ViewState::Register(Register::new());
                     change_state = true;
                 }
                 KeyCode::Down | KeyCode::Tab | KeyCode::Char('j') => {

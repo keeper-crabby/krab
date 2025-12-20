@@ -11,8 +11,8 @@ use krab::start;
 fn main() {
     dotenv().ok();
 
-    let db_path = init().unwrap();
-    match start(db_path) {
+    init().unwrap();
+    match start() {
         Ok(_) => {}
         Err(e) => eprintln!("Error: {}", e),
     }

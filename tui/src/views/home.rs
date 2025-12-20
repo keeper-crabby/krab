@@ -803,7 +803,7 @@ impl View for Home {
         match self.state {
             HomeViewState::Normal => match key.code {
                 KeyCode::Char('q') | KeyCode::Esc => {
-                    app.state = ViewState::Login(Login::new(&app.immutable_app_state.db_path));
+                    app.state = ViewState::Login(Login::new());
                     change_state = true;
                 }
                 KeyCode::Char('j') | KeyCode::Down => {
@@ -1021,7 +1021,6 @@ impl View for Home {
                     &master_password,
                     &self.new_secret.clone().unwrap().domain,
                     &self.new_secret.clone().unwrap().password,
-                    &app.immutable_app_state.db_path,
                 );
 
                 let res = self.user.add_record(config);
@@ -1068,7 +1067,6 @@ impl View for Home {
                     &master_password,
                     &current_secret.key,
                     "",
-                    &app.immutable_app_state.db_path,
                 );
 
                 let res = self.user.remove_record(config);
@@ -1115,7 +1113,6 @@ impl View for Home {
                     &master_password,
                     &current_secret.key,
                     &self.new_secret.clone().unwrap().password,
-                    &app.immutable_app_state.db_path,
                 );
 
                 let res = self.user.modify_record(config);
@@ -1238,7 +1235,15 @@ mod tests {
     use super::*;
 
     use rand::Rng;
-    use std::{env, path::PathBuf};
+    use std::sync::Once;
+
+    static INIT: Once = Once::new();
+
+    fn ensure_initialized() {
+        INIT.call_once(|| {
+            krab_backend::init().expect("Failed to initialize");
+        });
+    }
 
     fn random_number() -> u32 {
         let mut rng = rand::thread_rng();
@@ -1250,13 +1255,12 @@ mod tests {
     }
 
     fn setup_user_data(domain: &str) -> Result<RecordOperationConfig, String> {
+        ensure_initialized();
         let username = generate_random_username();
         let username = username.as_str().to_owned();
         let master_password = "password";
         let password = "password";
-        let path = PathBuf::from(env::var("KRAB_TEMP_DIR").unwrap());
-        let user =
-            RecordOperationConfig::new(username.as_str(), master_password, domain, password, &path);
+        let user = RecordOperationConfig::new(username.as_str(), master_password, domain, password);
         match User::new(&user) {
             Ok(_) => Ok(user.clone()),
             Err(e) => Err(e),
@@ -1264,7 +1268,7 @@ mod tests {
     }
 
     fn create_user(config: &RecordOperationConfig) -> Result<(User, ReadOnlyRecords), String> {
-        User::from(&config.path, &config.username, &config.master_password)
+        User::from(&config.username, &config.master_password)
     }
 
     #[test]

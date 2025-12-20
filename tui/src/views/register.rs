@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
 
 use ratatui::{
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
@@ -74,7 +74,6 @@ enum RegisterState {
 /// * `state` - The state
 /// * `domain` - The domain
 /// * `password` - The password
-/// * `path` - The path
 /// * `cursors` - The cursors
 /// * `input_offsets` - The input offsets
 /// * `hidden_password` - Decides if the master password is hidden
@@ -95,7 +94,6 @@ pub struct Register {
     state: RegisterState,
     domain: String,
     password: String,
-    path: PathBuf,
     cursors: HashMap<RegisterInput, u16>,
     input_offsets: HashMap<RegisterInput, u16>,
     hidden_password: bool,
@@ -105,12 +103,9 @@ pub struct Register {
 impl Register {
     /// Creates a new register view
     ///
-    /// # Arguments
-    /// * `path` - The path
-    ///
     /// # Returns
     /// A new `Register`
-    pub fn new(path: &PathBuf) -> Self {
+    pub fn new() -> Self {
         let mut cursors = HashMap::new();
         let mut input_offsets = HashMap::new();
         cursors.insert(RegisterInput::Username, 0);
@@ -126,7 +121,6 @@ impl Register {
             state: RegisterState::Username,
             domain: String::new(),
             password: String::new(),
-            path: path.clone(),
             cursors,
             input_offsets,
             hidden_password: true,
@@ -458,7 +452,6 @@ impl View for Register {
             &self.master_password,
             &domain,
             &password,
-            &self.path,
         );
 
         let res = User::new(&config);

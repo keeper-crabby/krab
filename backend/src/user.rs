@@ -5,7 +5,7 @@ use aes_gcm_siv::{
 use scrypt::{password_hash::SaltString, scrypt, Params};
 use std::{fs, path::PathBuf, str};
 
-use crate::{append_to_file, clear_file_content, create_file, hash, write_to_file};
+use crate::{append_to_file, clear_file_content, create_file, get_db_path, hash, write_to_file};
 
 pub use super::models::RecordOperationConfig;
 
@@ -341,18 +341,14 @@ impl User {
     /// Does not create a new user in the file system
     ///
     /// # Arguments
-    /// * `path` - The path to the user data
     /// * `username` - The username
     /// * `master_password` - The master password
     ///
     /// # Returns
     /// A new `User` and `ReadOnlyRecords` or an error message
-    pub fn from(
-        path: &PathBuf,
-        username: &str,
-        master_password: &str,
-    ) -> Result<(Self, ReadOnlyRecords), String> {
-        let records = Record::read_user(path, username, master_password);
+    pub fn from(username: &str, master_password: &str) -> Result<(Self, ReadOnlyRecords), String> {
+        let db_path = get_db_path();
+        let records = Record::read_user(db_path, username, master_password);
         let records = match records {
             Ok(r) => r,
             Err(e) => return Err(e),
@@ -370,10 +366,10 @@ impl User {
             }
         }
 
-        let path = path.join(hash(username.to_string()));
+        let file_path = db_path.join(hash(username.to_string()));
 
         Ok((
-            User(records, path, Username(username.to_string())),
+            User(records, file_path, Username(username.to_string())),
             ReadOnlyRecords(read_only_records),
         ))
     }
@@ -386,8 +382,9 @@ impl User {
     /// # Returns
     /// An error message if the user could not be created
     pub fn new(user: &RecordOperationConfig) -> Result<(), String> {
+        let db_path = get_db_path();
         let hashed_username = hash(user.username.to_string());
-        let res = create_file(&user.path, hashed_username.as_str());
+        let res = create_file(db_path, hashed_username.as_str());
         let file_path = match res {
             Ok(path) => path,
             Err(_) => return Err("Could not create file.".to_string()),
@@ -433,7 +430,7 @@ impl User {
     /// The read-only records or an error message
     pub fn add_record(&mut self, record: RecordOperationConfig) -> Result<ReadOnlyRecords, String> {
         let (integrity, ro_records) =
-            self.check_integrity(&record.username, &record.master_password, &record.path);
+            self.check_integrity(&record.username, &record.master_password);
 
         let mut ro_records = match ro_records {
             Some(ro_records) => ro_records,
@@ -479,7 +476,7 @@ impl User {
         record: RecordOperationConfig,
     ) -> Result<ReadOnlyRecords, String> {
         let (integrity, ro_records) =
-            self.check_integrity(&record.username, &record.master_password, &record.path);
+            self.check_integrity(&record.username, &record.master_password);
 
         let mut ro_records = match ro_records {
             Some(ro_records) => ro_records,
@@ -543,7 +540,7 @@ impl User {
         record: RecordOperationConfig,
     ) -> Result<ReadOnlyRecords, String> {
         let (integrity, ro_records) =
-            self.check_integrity(&record.username, &record.master_password, &record.path);
+            self.check_integrity(&record.username, &record.master_password);
 
         let mut ro_records = match ro_records {
             Some(ro_records) => ro_records,
@@ -620,7 +617,6 @@ impl User {
     /// # Arguments
     /// * `username` - The username of the user
     /// * `master_password` - The master password of the user
-    /// * `path` - The path to the user data
     ///
     /// # Returns
     /// A tuple of the integrity status and the read-only records if the integrity check passes
@@ -628,9 +624,9 @@ impl User {
         &self,
         username: &str,
         master_password: &str,
-        path: &PathBuf,
     ) -> (bool, Option<ReadOnlyRecords>) {
-        let records = Record::read_user(path, username, master_password);
+        let db_path = get_db_path();
+        let records = Record::read_user(db_path, username, master_password);
 
         match records {
             Ok(r) => {
@@ -706,7 +702,15 @@ mod tests {
     use super::*;
 
     use rand::Rng;
-    use std::{env, fs};
+    use std::{fs, sync::Once};
+
+    static INIT: Once = Once::new();
+
+    fn ensure_initialized() {
+        INIT.call_once(|| {
+            crate::init().expect("Failed to initialize");
+        });
+    }
 
     fn random_number() -> u32 {
         let mut rng = rand::thread_rng();
@@ -718,13 +722,12 @@ mod tests {
     }
 
     fn setup_user_data(domain: &str) -> Result<RecordOperationConfig, String> {
+        ensure_initialized();
         let username = generate_random_username();
         let username = username.as_str().to_owned();
         let master_password = "password";
         let password = "password";
-        let path = PathBuf::from(env::var("KRAB_TEMP_DIR").unwrap());
-        let user =
-            RecordOperationConfig::new(username.as_str(), master_password, domain, password, &path);
+        let user = RecordOperationConfig::new(username.as_str(), master_password, domain, password);
         match User::new(&user) {
             Ok(_) => Ok(user.clone()),
             Err(e) => Err(e),
@@ -732,7 +735,7 @@ mod tests {
     }
 
     fn create_user(config: &RecordOperationConfig) -> Result<(User, ReadOnlyRecords), String> {
-        User::from(&config.path, &config.username, &config.master_password)
+        User::from(&config.username, &config.master_password)
     }
 
     #[test]
@@ -803,7 +806,7 @@ mod tests {
 
         // delete the file (user)
         let hashed_username = hash(user_data.username.to_string());
-        let file_path = user_data.path.join(hashed_username.as_str());
+        let file_path = get_db_path().join(hashed_username.as_str());
         fs::remove_file(file_path).unwrap();
 
         assert_eq!(user.is_ok(), true);
@@ -815,22 +818,22 @@ mod tests {
         // the case where the user already exists thus we need to try to create
         // a user with the same username twice (setup_user_data creates a new user each time
         // with a unique username)
+        ensure_initialized();
 
         let username = generate_random_username();
         let username = username.as_str();
         let master_password = "password";
         let domain = "example.com";
         let password = "password";
-        let path = PathBuf::from(env::var("KRAB_TEMP_DIR").unwrap());
-        let config = RecordOperationConfig::new(username, master_password, domain, password, &path);
+        let config = RecordOperationConfig::new(username, master_password, domain, password);
         let _ = User::new(&config);
 
-        let config = RecordOperationConfig::new(username, master_password, domain, password, &path);
+        let config = RecordOperationConfig::new(username, master_password, domain, password);
         let res = User::new(&config);
 
         // delete the file (user)
         let hashed_username = hash(username.to_string());
-        let file_path = path.join(hashed_username.as_str());
+        let file_path = get_db_path().join(hashed_username.as_str());
         fs::remove_file(file_path).unwrap();
 
         assert_eq!(res.is_err(), true);
@@ -841,11 +844,8 @@ mod tests {
         let user_data = setup_user_data("example.com").unwrap();
         let (user, _) = create_user(&user_data).unwrap();
 
-        let (integrity, _) = user.check_integrity(
-            &user_data.username,
-            &user_data.master_password,
-            &user_data.path,
-        );
+        let (integrity, _) =
+            user.check_integrity(&user_data.username, &user_data.master_password);
 
         // delete the file (user)
         fs::remove_file(user.path()).unwrap();
@@ -858,8 +858,7 @@ mod tests {
         let user_data = setup_user_data("example.com").unwrap();
         let (user, _) = create_user(&user_data).unwrap();
 
-        let (integrity, _) =
-            user.check_integrity(&user_data.username, "wrong_password", &user_data.path);
+        let (integrity, _) = user.check_integrity(&user_data.username, "wrong_password");
 
         // delete the file (user)
         fs::remove_file(user.path()).unwrap();
@@ -900,11 +899,11 @@ mod tests {
     #[should_panic]
     fn test_read_record_fail() {
         let user_data = setup_user_data("example.com").unwrap();
-        let try_user = User::from(&user_data.path, &user_data.username, "wrong_password");
+        let try_user = User::from(&user_data.username, "wrong_password");
 
         // delete the file (user)
         let hashed_username = hash(user_data.username);
-        let file_path = user_data.path.join(hashed_username.as_str());
+        let file_path = get_db_path().join(hashed_username.as_str());
         fs::remove_file(file_path).unwrap();
 
         // this should panic
@@ -923,16 +922,11 @@ mod tests {
             &user_data.master_password,
             new_domain,
             new_password,
-            &user_data.path,
         );
         let res = user.add_record(add_record);
 
-        let (user, records) = User::from(
-            &user_data.path,
-            &user_data.username,
-            &user_data.master_password,
-        )
-        .unwrap();
+        let (user, records) =
+            User::from(&user_data.username, &user_data.master_password).unwrap();
 
         let records = records.records();
 
@@ -966,7 +960,6 @@ mod tests {
             "wrong_password",
             new_domain,
             new_password,
-            &user_data.path,
         );
         let res = user.add_record(add_record);
 
@@ -989,7 +982,6 @@ mod tests {
             &user_data.master_password,
             new_domain,
             new_password,
-            &user_data.path,
         );
         let res = user.add_record(add_record);
 
@@ -1012,7 +1004,6 @@ mod tests {
             &user_data.master_password,
             new_domain,
             new_password,
-            &user_data.path,
         );
         let _ = user.add_record(add_record);
 
@@ -1023,7 +1014,6 @@ mod tests {
             &user_data.master_password,
             new_domain,
             new_password,
-            &user_data.path,
         );
         let _ = user.add_record(add_record);
 
@@ -1032,16 +1022,11 @@ mod tests {
             &user_data.master_password,
             "example2.com",
             "",
-            &user_data.path,
         );
         let res = user.remove_record(remove_record);
 
-        let (user, records) = User::from(
-            &user_data.path,
-            &user_data.username,
-            &user_data.master_password,
-        )
-        .unwrap();
+        let (user, records) =
+            User::from(&user_data.username, &user_data.master_password).unwrap();
 
         let records = records.records();
         let domains: Vec<String> = records.iter().map(|r| r.0.clone()).collect();
@@ -1086,7 +1071,6 @@ mod tests {
             &user_data.master_password,
             new_domain,
             new_password,
-            &user_data.path,
         );
         let _ = user.add_record(add_record);
 
@@ -1097,7 +1081,6 @@ mod tests {
             &user_data.master_password,
             new_domain,
             new_password,
-            &user_data.path,
         );
         let _ = user.add_record(add_record);
 
@@ -1106,16 +1089,11 @@ mod tests {
             &user_data.master_password,
             "example2.com",
             "",
-            &user_data.path,
         );
         let res = user.remove_record(remove_record);
 
-        let (user, records) = User::from(
-            &user_data.path,
-            &user_data.username,
-            &user_data.master_password,
-        )
-        .unwrap();
+        let (user, records) =
+            User::from(&user_data.username, &user_data.master_password).unwrap();
         let records = records.records();
 
         // delete the file (user)
@@ -1137,7 +1115,6 @@ mod tests {
             &user_data.master_password,
             new_domain,
             new_password,
-            &user_data.path,
         );
         let _ = user.add_record(add_record);
 
@@ -1146,7 +1123,6 @@ mod tests {
             &user_data.master_password,
             "example3.com",
             "",
-            &user_data.path,
         );
         let res = user.remove_record(remove_record);
 
@@ -1168,7 +1144,6 @@ mod tests {
             &user_data.master_password,
             new_domain,
             new_password,
-            &user_data.path,
         );
         let _ = user.add_record(add_record);
 
@@ -1177,7 +1152,6 @@ mod tests {
             "wrong_password",
             "example2.com",
             "",
-            &user_data.path,
         );
         let res = user.remove_record(remove_record);
 
@@ -1197,7 +1171,6 @@ mod tests {
             &user_data.master_password,
             "example.com",
             "",
-            &user_data.path,
         );
         let res = user.remove_record(remove_record);
 
@@ -1218,16 +1191,11 @@ mod tests {
             &user_data.master_password,
             &user_data.domain,
             new_password,
-            &user_data.path,
         );
         let res = user.modify_record(modify_record);
 
-        let (user, records) = User::from(
-            &user_data.path,
-            &user_data.username,
-            &user_data.master_password,
-        )
-        .unwrap();
+        let (user, records) =
+            User::from(&user_data.username, &user_data.master_password).unwrap();
         let records = records.records();
         let modified_record = records.iter().find(|r| r.0 == user_data.domain);
         let modified_record = match modified_record {
@@ -1256,7 +1224,6 @@ mod tests {
             "wrong_password",
             &user_data.domain,
             new_password,
-            &user_data.path,
         );
         let res = user.modify_record(modify_record);
 
@@ -1277,7 +1244,6 @@ mod tests {
             &user_data.master_password,
             "example2.com",
             new_password,
-            &user_data.path,
         );
         let res = user.modify_record(modify_record);
 

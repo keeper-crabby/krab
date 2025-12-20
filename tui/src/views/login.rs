@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
 
 use ratatui::{
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
@@ -70,7 +70,6 @@ enum LoginState {
 /// * `username` - The username
 /// * `master_password` - The master password
 /// * `state` - The state
-/// * `path` - The path
 /// * `cursors` - The cursors
 /// * `input_offsets` - The input offsets
 /// * `hidden_password` - Decides if the password is hidden
@@ -88,7 +87,6 @@ pub struct Login {
     username: String,
     master_password: String,
     state: LoginState,
-    path: PathBuf,
     cursors: HashMap<LoginInput, u16>,
     input_offsets: HashMap<LoginInput, u16>,
     hidden_password: bool,
@@ -97,12 +95,9 @@ pub struct Login {
 impl Login {
     /// Creates a new login view
     ///
-    /// # Arguments
-    /// * `path` - The path
-    ///
     /// # Returns
     /// A new `Login` view
-    pub fn new(path: &PathBuf) -> Self {
+    pub fn new() -> Self {
         let mut cursors = HashMap::new();
         let mut input_offsets = HashMap::new();
         cursors.insert(LoginInput::Username, 0);
@@ -113,7 +108,6 @@ impl Login {
             username: String::new(),
             master_password: String::new(),
             state: LoginState::Username,
-            path: path.clone(),
             cursors,
             input_offsets,
             hidden_password: true,
@@ -126,12 +120,12 @@ impl Login {
     /// The user and the read only records if the login is successful
     /// An error message if the login is unsuccessful
     fn login(&self) -> Result<(User, ReadOnlyRecords), String> {
-        let user_exists = check_user(&self.username, self.path.clone());
+        let user_exists = check_user(&self.username);
         if !user_exists {
             return Err("Cannot login".to_string());
         }
 
-        let user_creation_result = User::from(&self.path, &self.username, &self.master_password);
+        let user_creation_result = User::from(&self.username, &self.master_password);
 
         match user_creation_result {
             Ok(u) => Ok(u),

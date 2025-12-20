@@ -1,4 +1,4 @@
-use std::{cell::RefCell, error::Error, io, path::PathBuf};
+use std::{cell::RefCell, error::Error, io};
 
 use components::window_too_small::{WindowTooSmall, WindowTooSmallConfig};
 use ratatui::{
@@ -40,12 +40,10 @@ pub struct Application {
 ///
 /// # Fields
 /// * `name` - The name of the application
-/// * `db_path` - The path to the database
 /// * `rect` - The rectangle of the application
 #[derive(Debug, Clone, PartialEq)]
 struct ImmutableAppState {
     name: String,
-    db_path: PathBuf,
     rect: Option<Rect>,
 }
 
@@ -64,12 +62,9 @@ struct MutableAppState {
 
 /// Starts the application
 ///
-/// # Arguments
-/// * `db_path` - The path to the database
-///
 /// # Returns
 /// A `Result` indicating success or failure
-pub fn start(db_path: PathBuf) -> Result<(), Box<dyn Error>> {
+pub fn start() -> Result<(), Box<dyn Error>> {
     enable_raw_mode()?;
 
     let mut stdout = io::stdout();
@@ -79,7 +74,7 @@ pub fn start(db_path: PathBuf) -> Result<(), Box<dyn Error>> {
     let mut terminal = Terminal::new(beckend)?;
 
     let rect = terminal.get_frame().area();
-    let app = Application::create(db_path, rect);
+    let app = Application::create(rect);
     let _res = run_app(&mut terminal, app);
 
     disable_raw_mode()?;
@@ -307,12 +302,11 @@ impl Application {
     /// Creates a new `Application`
     ///
     /// # Arguments
-    /// * `db_path` - The path to the database
     /// * `rect` - The rectangle of the application
     ///
     /// # Returns
     /// A new `Application`
-    fn create(db_path: PathBuf, rect: Rect) -> RefCell<Self> {
+    fn create(rect: Rect) -> RefCell<Self> {
         // Load theme from config
         let config = krab_backend::Config::load().unwrap_or_default();
         let theme_config: ThemeConfig = config
@@ -323,7 +317,6 @@ impl Application {
 
         let immutable_app_state = ImmutableAppState {
             name: "krab".to_string(),
-            db_path,
             rect: Some(rect),
         };
 
