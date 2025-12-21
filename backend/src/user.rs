@@ -274,18 +274,31 @@ impl Record {
         master_password: &str,
         offset: u32,
     ) -> Result<(Self, Vec<u8>, u32), aead::Error> {
+        // Minimum header size: 22 (salt) + 12 (nonce) + 4 (len) = 38 bytes
+        if bytes.len() < 38 {
+            return Err(aead::Error);
+        }
+
         let salt = bytes[0..22].to_vec();
         let nonce = GenericArray::clone_from_slice(&bytes[22..34]);
-        let ciphertext_len = u32::from_be_bytes(bytes[34..38].try_into().unwrap());
-        let ciphertext = bytes[38..(38 + ciphertext_len as usize)].to_vec();
+        let ciphertext_len =
+            u32::from_be_bytes(bytes[34..38].try_into().map_err(|_| aead::Error)?);
+
+        // Check ciphertext bounds
+        let end = 38 + ciphertext_len as usize;
+        if bytes.len() < end {
+            return Err(aead::Error);
+        }
+
+        let ciphertext = bytes[38..end].to_vec();
         let derived_key = DerivedKey::derive_key(master_password, Some(salt.clone()));
         let key = Key::<Aes128GcmSiv>::clone_from_slice(&derived_key.key);
         let cipher_config = CipherConfig::new(key, salt, nonce, ciphertext);
-        let current_offset = 38 + ciphertext_len as usize + offset as usize;
+        let current_offset = end + offset as usize;
 
         Ok((
             Record::new(cipher_config, offset),
-            bytes[(38 + ciphertext_len as usize)..].to_vec(),
+            bytes[end..].to_vec(),
             current_offset as u32,
         ))
     }
