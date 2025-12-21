@@ -138,12 +138,15 @@ impl CipherConfig {
     /// * `data` - The data to unmarshal
     ///
     /// # Returns
-    /// A tuple of the domain and password
-    fn unmarshal(data: &str) -> (String, String) {
+    /// A tuple of the domain and password, or None if data is malformed
+    fn unmarshal(data: &str) -> Option<(String, String)> {
         let parts: Vec<&str> = data.split_whitespace().collect();
+        if parts.len() < 2 {
+            return None;
+        }
         let domain = parts[0].replace("\\s", " ").replace("\\\\", "\\");
         let password = parts[1].replace("\\s", " ").replace("\\\\", "\\");
-        (domain, password)
+        Some((domain, password))
     }
 
     /// Writes the cipher configuration to a buffer modifying the buffer
@@ -196,7 +199,7 @@ impl CipherConfig {
         let cipher = Aes128GcmSiv::new(&self.key);
         let plaintext = cipher.decrypt(&self.nonce, self.ciphertext.as_ref())?;
         let text = str::from_utf8(&plaintext).map_err(|_| aead::Error)?;
-        let (domain, password) = CipherConfig::unmarshal(text);
+        let (domain, password) = CipherConfig::unmarshal(text).ok_or(aead::Error)?;
         Ok(DomainPasswordPair { domain, password })
     }
 }
@@ -771,28 +774,28 @@ mod tests {
         let domain = "example.com";
         let password = "password";
         let data = CipherConfig::marshal(domain, password);
-        let (d, p) = CipherConfig::unmarshal(data.as_str());
+        let (d, p) = CipherConfig::unmarshal(data.as_str()).unwrap();
         assert_eq!(d, domain);
         assert_eq!(p, password);
 
         let domain = "example.com with spaces";
         let password = "password with spaces";
         let data = CipherConfig::marshal(domain, password);
-        let (d, p) = CipherConfig::unmarshal(data.as_str());
+        let (d, p) = CipherConfig::unmarshal(data.as_str()).unwrap();
         assert_eq!(d, domain);
         assert_eq!(p, password);
 
         let domain = "example.com with \\";
         let password = "password with \\";
         let data = CipherConfig::marshal(domain, password);
-        let (d, p) = CipherConfig::unmarshal(data.as_str());
+        let (d, p) = CipherConfig::unmarshal(data.as_str()).unwrap();
         assert_eq!(d, domain);
         assert_eq!(p, password);
 
         let domain = "example.com with \\ and    spacessss";
         let password = "password with \\ and    spacessss";
         let data = CipherConfig::marshal(domain, password);
-        let (d, p) = CipherConfig::unmarshal(data.as_str());
+        let (d, p) = CipherConfig::unmarshal(data.as_str()).unwrap();
         assert_eq!(d, domain);
         assert_eq!(p, password);
     }
