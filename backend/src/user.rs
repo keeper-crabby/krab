@@ -501,7 +501,6 @@ impl User {
 
             if data.domain != record.domain {
                 new_records.push(r.clone());
-                ro_records.remove_record(&record.domain);
             } else {
                 found = true;
             }
@@ -510,6 +509,8 @@ impl User {
         if !found {
             return Err("Record not found".to_string());
         }
+
+        ro_records.remove_record(&record.domain);
 
         // TODO: calibrate offsets or remove them
 
