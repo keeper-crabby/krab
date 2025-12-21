@@ -533,7 +533,7 @@ impl User {
 
         // TODO: calibrate offsets or remove them
 
-        self.remove_records_from_file();
+        self.remove_records_from_file()?;
         let path = self.path();
         let mut buffer = vec![];
 
@@ -673,13 +673,10 @@ impl User {
     /// Removes all records from the file
     ///
     /// # Returns
-    /// Nothing, panics if the records could not be removed (TODO: handle error)
-    fn remove_records_from_file(&mut self) {
+    /// Ok if the file was cleared, Err if the file could not be cleared
+    fn remove_records_from_file(&mut self) -> Result<(), String> {
         let path = self.path();
-        match clear_file_content(&path) {
-            Ok(_) => {}
-            Err(_) => panic!("Could not clear file content"),
-        }
+        clear_file_content(&path).map_err(|_| "Could not clear file content".to_string())
     }
 }
 
