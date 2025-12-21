@@ -195,7 +195,8 @@ impl CipherConfig {
     fn decrypt_data(&self) -> Result<DomainPasswordPair, aead::Error> {
         let cipher = Aes128GcmSiv::new(&self.key);
         let plaintext = cipher.decrypt(&self.nonce, self.ciphertext.as_ref())?;
-        let (domain, password) = CipherConfig::unmarshal(str::from_utf8(&plaintext).unwrap());
+        let text = str::from_utf8(&plaintext).map_err(|_| aead::Error)?;
+        let (domain, password) = CipherConfig::unmarshal(text);
         Ok(DomainPasswordPair { domain, password })
     }
 }
