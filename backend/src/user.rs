@@ -319,7 +319,8 @@ impl Record {
         let mut data: Vec<Record> = Vec::new();
         let mut offset = 0;
         if file_path.exists() {
-            let mut bytes = fs::read(file_path).unwrap();
+            let mut bytes = fs::read(file_path)
+                .map_err(|_| "Could not read user file".to_string())?;
             let mut run = true;
             while run {
                 let res = Record::read_from_bytes(bytes, master_password, offset);
@@ -471,7 +472,8 @@ impl User {
         let record = Record::new(cipher, offset);
         let mut buffer = vec![];
         record.cypher.write(&mut buffer);
-        append_to_file(&self.path(), buffer).unwrap();
+        append_to_file(&self.path(), buffer)
+            .map_err(|_| "Could not write to file".to_string())?;
         self.0.push(record);
 
         Ok(ro_records)
@@ -536,7 +538,7 @@ impl User {
             record.cypher.write(&mut buffer);
         }
 
-        write_to_file(&path, buffer).unwrap();
+        write_to_file(&path, buffer).map_err(|_| "Could not write to file".to_string())?;
         self.0 = new_records;
 
         Ok(ro_records)
@@ -604,7 +606,8 @@ impl User {
             record.cypher.write(&mut buffer);
         }
 
-        write_to_file(&self.path(), buffer).unwrap();
+        write_to_file(&self.path(), buffer)
+            .map_err(|_| "Could not write to file".to_string())?;
         self.0 = new_records;
 
         Ok(ro_records)
