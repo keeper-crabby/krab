@@ -112,6 +112,11 @@ impl ScrollView {
         buffer_to_render: &Buffer,
         theme: &Theme,
     ) -> Rect {
+        // Skip scrollbar rendering if area is too small
+        if area.width < 5 || area.height < 3 {
+            return area;
+        }
+
         let scrollbar_x_start = area.x;
         let scrollbar_x_end = area.x + area.width;
         let scrollbar_y_start = area.y;
