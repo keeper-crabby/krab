@@ -870,8 +870,25 @@ impl View for Home {
                         .secrets
                         .get(self.secrets.last().unwrap().selected_secret)
                         .unwrap();
-                    let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
-                    ctx.set_contents(current_secret.value.clone()).unwrap();
+                    match ClipboardProvider::new() {
+                        Ok(mut ctx) => {
+                            let ctx: &mut ClipboardContext = &mut ctx;
+                            if ctx.set_contents(current_secret.value.clone()).is_err() {
+                                app.mutable_app_state
+                                    .popups
+                                    .push(Box::new(MessagePopup::new(
+                                        "Failed to copy\nto clipboard".to_string(),
+                                    )));
+                            }
+                        }
+                        Err(_) => {
+                            app.mutable_app_state
+                                .popups
+                                .push(Box::new(MessagePopup::new(
+                                    "Clipboard unavailable".to_string(),
+                                )));
+                        }
+                    }
                 }
                 KeyCode::Char('f') => {
                     self.state = HomeViewState::Filter;
