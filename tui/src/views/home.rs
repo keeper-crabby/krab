@@ -516,16 +516,16 @@ impl Home {
         );
 
         let selected_secret = self.secrets.last().unwrap().selected_secret;
-        let selecred_secret_domain = self.secrets.last().unwrap().secrets[selected_secret]
+        let selected_secret_domain = self.secrets.last().unwrap().secrets[selected_secret]
             .key
             .clone();
         let mut shown_secrets = self.secrets.last().unwrap().shown_secrets.clone();
         if shown_secrets.contains(&selected_secret) {
             shown_secrets.retain(|&x| x != selected_secret);
-            self.set_shown_upwards(selecred_secret_domain, false);
+            self.set_shown_upwards(selected_secret_domain, false);
         } else {
             shown_secrets.push(selected_secret);
-            self.set_shown_upwards(selecred_secret_domain, true);
+            self.set_shown_upwards(selected_secret_domain, true);
         }
 
         self.secrets.last_mut().unwrap().shown_secrets = shown_secrets;
