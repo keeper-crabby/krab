@@ -168,13 +168,15 @@ pub fn init() -> Result<(), io::Error> {
         let sub_dir = env::var("KRAB_DIR").unwrap_or(RELEASE_SUFFIX.to_string());
         let proj_dirs = proj_dirs.data_dir().join(sub_dir);
         if !proj_dirs.is_dir() {
-            let res = create_if_not_exists(&proj_dirs);
-            assert!(res.is_ok());
+            create_if_not_exists(&proj_dirs)?;
         }
         let _ = DB_PATH.set(proj_dirs.to_path_buf());
         Ok(())
     } else {
-        panic!("Could not get project directories");
+        Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "Could not get project directories",
+        ))
     }
 }
 
