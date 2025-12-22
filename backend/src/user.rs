@@ -761,6 +761,7 @@ pub mod migration {
     use super::*;
 
     /// Legacy derived key with 16-byte output for AES-128
+    #[allow(dead_code)]
     struct LegacyDerivedKey {
         key: [u8; 16],
         salt: Vec<u8>,
