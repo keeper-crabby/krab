@@ -16,6 +16,8 @@ static DB_PATH: OnceLock<PathBuf> = OnceLock::new();
 mod models;
 pub mod user;
 
+pub use user::migration::migrate_user;
+
 const LOWERCASE: &str = "abcdefghijklmnopqrstuvwxyz";
 const UPPERCASE: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const NUMBERS: &str = "0123456789";

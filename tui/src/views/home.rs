@@ -924,6 +924,7 @@ impl View for Home {
                     self.input_offset = input_offset;
 
                     self.fuzzy_filter(previous_value, self.filter_value.clone());
+                    self.position.offset_y = 0;
                 }
             },
         }

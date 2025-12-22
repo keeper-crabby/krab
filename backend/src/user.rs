@@ -1,6 +1,6 @@
 use aes_gcm_siv::{
     aead::{self, consts::U12, generic_array::GenericArray, Aead, KeyInit, OsRng},
-    AeadCore, Aes128GcmSiv, Key,
+    AeadCore, Aes128GcmSiv, Aes256GcmSiv, Key,
 };
 use scrypt::{password_hash::SaltString, scrypt, Params};
 use std::{fs, path::PathBuf, str};
@@ -52,7 +52,7 @@ struct DomainPasswordPair {
 /// * `ciphertext` - The ciphertext
 #[derive(Debug, Clone, PartialEq)]
 struct CipherConfig {
-    key: Key<Aes128GcmSiv>,
+    key: Key<Aes256GcmSiv>,
     salt: Vec<u8>,                // 22 bytes
     nonce: GenericArray<u8, U12>, // 12 bytes
     ciphertext: Vec<u8>,
@@ -65,7 +65,7 @@ struct CipherConfig {
 /// * `salt` - The salt
 #[derive(Debug, Clone, PartialEq)]
 struct DerivedKey {
-    pub key: [u8; 16],
+    pub key: [u8; 32],
     pub salt: Vec<u8>,
 }
 
@@ -99,7 +99,7 @@ impl CipherConfig {
     /// # Returns
     /// A new `CipherConfig`
     fn new(
-        key: Key<Aes128GcmSiv>,
+        key: Key<Aes256GcmSiv>,
         salt: Vec<u8>,
         nonce: GenericArray<u8, U12>,
         ciphertext: Vec<u8>,
@@ -182,9 +182,9 @@ impl CipherConfig {
     ) -> Result<Self, aead::Error> {
         let derived_key = DerivedKey::derive_key(master_password, None);
         let salt = derived_key.salt;
-        let key = Key::<Aes128GcmSiv>::clone_from_slice(&derived_key.key);
-        let cipher = Aes128GcmSiv::new(&key);
-        let nonce = Aes128GcmSiv::generate_nonce(&mut OsRng);
+        let key = Key::<Aes256GcmSiv>::clone_from_slice(&derived_key.key);
+        let cipher = Aes256GcmSiv::new(&key);
+        let nonce = Aes256GcmSiv::generate_nonce(&mut OsRng);
         let data = CipherConfig::marshal(domain, password);
 
         let ciphertext = cipher.encrypt(&nonce, data.as_bytes())?;
@@ -196,7 +196,7 @@ impl CipherConfig {
     /// # Returns
     /// A new `DomainPasswordPair` or an error if decryption fails
     fn decrypt_data(&self) -> Result<DomainPasswordPair, aead::Error> {
-        let cipher = Aes128GcmSiv::new(&self.key);
+        let cipher = Aes256GcmSiv::new(&self.key);
         let plaintext = cipher.decrypt(&self.nonce, self.ciphertext.as_ref())?;
         let text = str::from_utf8(&plaintext).map_err(|_| aead::Error)?;
         let (domain, password) = CipherConfig::unmarshal(text).ok_or(aead::Error)?;
@@ -213,7 +213,7 @@ impl DerivedKey {
     ///
     /// # Returns
     /// A new `DerivedKey`
-    fn new(key: [u8; 16], salt: Vec<u8>) -> Self {
+    fn new(key: [u8; 32], salt: Vec<u8>) -> Self {
         DerivedKey { key, salt }
     }
 
@@ -236,11 +236,11 @@ impl DerivedKey {
                 .to_vec(),
         };
         let salt_copy = salt.clone();
-        let mut derived_key = [0u8; 16];
+        let mut derived_key = [0u8; 32];
         scrypt(
             &data.as_bytes(),
             &salt,
-            &Params::new(14 as u8, 8 as u32, 1 as u32, 16 as usize).unwrap(),
+            &Params::new(14 as u8, 8 as u32, 1 as u32, 32 as usize).unwrap(),
             &mut derived_key,
         )
         .unwrap();
@@ -295,7 +295,7 @@ impl Record {
 
         let ciphertext = bytes[38..end].to_vec();
         let derived_key = DerivedKey::derive_key(master_password, Some(salt.clone()));
-        let key = Key::<Aes128GcmSiv>::clone_from_slice(&derived_key.key);
+        let key = Key::<Aes256GcmSiv>::clone_from_slice(&derived_key.key);
         let cipher_config = CipherConfig::new(key, salt, nonce, ciphertext);
         let current_offset = end + offset as usize;
 
@@ -357,6 +357,7 @@ impl Record {
 impl User {
     /// Creates a new `User` instance
     /// Does not create a new user in the file system
+    /// Automatically migrates from AES-128 to AES-256 if needed
     ///
     /// # Arguments
     /// * `username` - The username
@@ -366,30 +367,70 @@ impl User {
     /// A new `User` and `ReadOnlyRecords` or an error message
     pub fn from(username: &str, master_password: &str) -> Result<(Self, ReadOnlyRecords), String> {
         let db_path = get_db_path();
-        let records = Record::read_user(db_path, username, master_password);
-        let records = match records {
-            Ok(r) => r,
-            Err(e) => return Err(e),
-        };
-        let mut read_only_records = vec![];
 
-        for record in records.iter() {
-            let decrypted = record.cypher.decrypt_data();
-            match decrypted {
-                Ok(decrypted) => {
-                    read_only_records
-                        .push((decrypted.domain.to_string(), decrypted.password.to_string()));
-                }
-                Err(_) => return Err("Could not decrypt data".to_string()),
+        // Try reading with current AES-256 format first
+        let records = Record::read_user(&db_path, username, master_password);
+
+        let try_aes256 = || -> Result<(User, ReadOnlyRecords), String> {
+            let r = records.as_ref().map_err(|e| e.clone())?;
+            let mut read_only_records = vec![];
+            for record in r.iter() {
+                let decrypted = record
+                    .cypher
+                    .decrypt_data()
+                    .map_err(|_| "Decryption failed".to_string())?;
+                read_only_records.push((
+                    decrypted.domain.to_string(),
+                    decrypted.password.to_string(),
+                ));
             }
+            let file_path = db_path.join(hash(username.to_string()));
+            Ok((
+                User(r.clone(), file_path, Username(username.to_string())),
+                ReadOnlyRecords(read_only_records),
+            ))
+        };
+
+        // Try AES-256 first
+        if let Ok(result) = try_aes256() {
+            return Ok(result);
         }
 
-        let file_path = db_path.join(hash(username.to_string()));
+        // AES-256 failed (either read or decrypt), try legacy AES-128 migration
+        match migration::migrate_user(username, master_password) {
+            Ok(_) => {
+                // Migration succeeded, now read with AES-256
+                let records = Record::read_user(&db_path, username, master_password)
+                    .map_err(|_| "Migration succeeded but could not read data".to_string())?;
 
-        Ok((
-            User(records, file_path, Username(username.to_string())),
-            ReadOnlyRecords(read_only_records),
-        ))
+                let mut read_only_records = vec![];
+                for record in records.iter() {
+                    let decrypted = record.cypher.decrypt_data();
+                    match decrypted {
+                        Ok(decrypted) => {
+                            read_only_records.push((
+                                decrypted.domain.to_string(),
+                                decrypted.password.to_string(),
+                            ));
+                        }
+                        Err(_) => return Err("Could not decrypt migrated data".to_string()),
+                    }
+                }
+                let file_path = db_path.join(hash(username.to_string()));
+                Ok((
+                    User(records, file_path, Username(username.to_string())),
+                    ReadOnlyRecords(read_only_records),
+                ))
+            }
+            Err(e) => {
+                // Both AES-256 and migration failed
+                if e.contains("User not found") {
+                    Err("User not found".to_string())
+                } else {
+                    Err("Could not decrypt data - wrong password?".to_string())
+                }
+            }
+        }
     }
 
     /// Creates a new user and writes the user data to the file system
@@ -715,6 +756,127 @@ impl ReadOnlyRecords {
     }
 }
 
+/// Migration module for upgrading from AES-128 to AES-256
+pub mod migration {
+    use super::*;
+
+    /// Legacy derived key with 16-byte output for AES-128
+    struct LegacyDerivedKey {
+        key: [u8; 16],
+        salt: Vec<u8>,
+    }
+
+    impl LegacyDerivedKey {
+        /// Derives a 16-byte key (legacy AES-128 format)
+        fn derive_key(data: &str, salt: Vec<u8>) -> Self {
+            let salt_copy = salt.clone();
+            let mut derived_key = [0u8; 16];
+            scrypt(
+                &data.as_bytes(),
+                &salt,
+                &Params::new(14 as u8, 8 as u32, 1 as u32, 16 as usize).unwrap(),
+                &mut derived_key,
+            )
+            .unwrap();
+            LegacyDerivedKey {
+                key: derived_key,
+                salt: salt_copy,
+            }
+        }
+    }
+
+    /// Reads a record using legacy AES-128 format
+    fn read_legacy_record(
+        bytes: Vec<u8>,
+        master_password: &str,
+    ) -> Result<(String, String, Vec<u8>), String> {
+        // Minimum header size: 22 (salt) + 12 (nonce) + 4 (len) = 38 bytes
+        if bytes.len() < 38 {
+            return Err("Record too short".to_string());
+        }
+
+        let salt = bytes[0..22].to_vec();
+        let nonce = GenericArray::clone_from_slice(&bytes[22..34]);
+        let ciphertext_len = u32::from_be_bytes(
+            bytes[34..38]
+                .try_into()
+                .map_err(|_| "Invalid ciphertext length".to_string())?,
+        );
+
+        let end = 38 + ciphertext_len as usize;
+        if bytes.len() < end {
+            return Err("Truncated ciphertext".to_string());
+        }
+
+        let ciphertext = bytes[38..end].to_vec();
+        let remaining = bytes[end..].to_vec();
+
+        // Derive legacy 16-byte key
+        let derived_key = LegacyDerivedKey::derive_key(master_password, salt);
+        let key = Key::<Aes128GcmSiv>::clone_from_slice(&derived_key.key);
+        let cipher = Aes128GcmSiv::new(&key);
+
+        // Decrypt with AES-128
+        let plaintext = cipher
+            .decrypt(&nonce, ciphertext.as_ref())
+            .map_err(|_| "Decryption failed - wrong password or corrupted data".to_string())?;
+
+        let text =
+            str::from_utf8(&plaintext).map_err(|_| "Invalid UTF-8 in decrypted data".to_string())?;
+
+        let (domain, password) =
+            CipherConfig::unmarshal(text).ok_or("Malformed record data".to_string())?;
+
+        Ok((domain, password, remaining))
+    }
+
+    /// Migrates a user's data from AES-128 to AES-256 encryption
+    ///
+    /// # Arguments
+    /// * `username` - The username
+    /// * `master_password` - The master password
+    ///
+    /// # Returns
+    /// Ok(count) with the number of records migrated, or an error message
+    pub fn migrate_user(username: &str, master_password: &str) -> Result<usize, String> {
+        let db_path = get_db_path();
+        let hash = hash(username.to_string());
+        let file_path = db_path.join(hash.as_str());
+
+        if !file_path.exists() {
+            return Err("User not found".to_string());
+        }
+
+        // Read all bytes from file
+        let mut bytes = fs::read(&file_path).map_err(|_| "Could not read user file".to_string())?;
+
+        // Decrypt all records with legacy AES-128
+        let mut records: Vec<(String, String)> = vec![];
+        while !bytes.is_empty() {
+            let (domain, password, remaining) = read_legacy_record(bytes, master_password)?;
+            records.push((domain, password));
+            bytes = remaining;
+        }
+
+        if records.is_empty() {
+            return Err("No records found to migrate".to_string());
+        }
+
+        // Re-encrypt all records with AES-256
+        let mut buffer = vec![];
+        for (domain, password) in &records {
+            let cipher = CipherConfig::encrypt_data(domain, password, master_password)
+                .map_err(|_| "Failed to encrypt record with new format".to_string())?;
+            cipher.write(&mut buffer);
+        }
+
+        // Write back to file
+        write_to_file(&file_path, buffer).map_err(|_| "Failed to write migrated data".to_string())?;
+
+        Ok(records.len())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -762,7 +924,7 @@ mod tests {
         let derived_key = DerivedKey::derive_key(data, None);
         let key = derived_key.key;
         let salt = derived_key.salt;
-        assert_eq!(key.len(), 16);
+        assert_eq!(key.len(), 32);
         assert_eq!(salt.len(), 22);
     }
 
@@ -1269,5 +1431,247 @@ mod tests {
         fs::remove_file(user.path()).unwrap();
 
         assert_eq!(res.is_err(), true);
+    }
+
+    // Migration tests
+    mod migration_tests {
+        use super::*;
+        use crate::user::migration::migrate_user;
+
+        /// Creates a legacy AES-128 encrypted record for testing migration
+        fn create_legacy_record(
+            domain: &str,
+            password: &str,
+            master_password: &str,
+        ) -> Vec<u8> {
+            // Derive 16-byte key (legacy format)
+            let salt = SaltString::generate(&mut OsRng)
+                .as_str()
+                .as_bytes()
+                .to_vec();
+            let salt_copy = salt.clone();
+            let mut derived_key = [0u8; 16];
+            scrypt(
+                &master_password.as_bytes(),
+                &salt,
+                &Params::new(14 as u8, 8 as u32, 1 as u32, 16 as usize).unwrap(),
+                &mut derived_key,
+            )
+            .unwrap();
+
+            // Encrypt with AES-128
+            let key = Key::<Aes128GcmSiv>::clone_from_slice(&derived_key);
+            let cipher = Aes128GcmSiv::new(&key);
+            let nonce = Aes128GcmSiv::generate_nonce(&mut OsRng);
+            let data = CipherConfig::marshal(domain, password);
+            let ciphertext = cipher.encrypt(&nonce, data.as_bytes()).unwrap();
+
+            // Build record bytes: salt (22) + nonce (12) + len (4) + ciphertext
+            let mut buffer = vec![];
+            buffer.extend_from_slice(&salt_copy);
+            buffer.extend_from_slice(nonce.as_slice());
+            let ciphertext_len: u32 = ciphertext.len() as u32;
+            buffer.extend_from_slice(&ciphertext_len.to_be_bytes());
+            buffer.extend_from_slice(&ciphertext);
+            buffer
+        }
+
+        #[test]
+        fn test_migration_success() {
+            ensure_initialized();
+            let username = generate_random_username();
+            let master_password = "test_master_password";
+            let domain = "example.com";
+            let password = "secret123";
+
+            // Create file path
+            let db_path = get_db_path();
+            let hash = hash(username.clone());
+            let file_path = db_path.join(hash.as_str());
+
+            // Create legacy AES-128 encrypted file
+            let legacy_data = create_legacy_record(domain, password, master_password);
+            fs::write(&file_path, &legacy_data).unwrap();
+
+            // Migrate to AES-256
+            let result = migrate_user(&username, master_password);
+            assert!(result.is_ok(), "Migration failed: {:?}", result.err());
+            assert_eq!(result.unwrap(), 1, "Should have migrated 1 record");
+
+            // Verify we can read with new AES-256 format
+            let user = User::from(&username, master_password);
+            assert!(user.is_ok(), "Could not read migrated user");
+            let (_, records) = user.unwrap();
+            assert_eq!(records.records().len(), 1);
+
+            let recs = records.records();
+            let (d, p) = recs.first().unwrap();
+            assert_eq!(d, domain);
+            assert_eq!(p, password);
+
+            // Cleanup
+            fs::remove_file(&file_path).unwrap();
+        }
+
+        #[test]
+        fn test_migration_multiple_records() {
+            ensure_initialized();
+            let username = generate_random_username();
+            let master_password = "test_master_password";
+
+            // Create file path
+            let db_path = get_db_path();
+            let hash = hash(username.clone());
+            let file_path = db_path.join(hash.as_str());
+
+            // Create multiple legacy AES-128 encrypted records
+            let mut legacy_data = vec![];
+            legacy_data.extend(create_legacy_record("github.com", "pass1", master_password));
+            legacy_data.extend(create_legacy_record("gitlab.com", "pass2", master_password));
+            legacy_data.extend(create_legacy_record("bitbucket.com", "pass3", master_password));
+            fs::write(&file_path, &legacy_data).unwrap();
+
+            // Migrate to AES-256
+            let result = migrate_user(&username, master_password);
+            assert!(result.is_ok(), "Migration failed: {:?}", result.err());
+            assert_eq!(result.unwrap(), 3, "Should have migrated 3 records");
+
+            // Verify we can read with new AES-256 format
+            let user = User::from(&username, master_password);
+            assert!(user.is_ok(), "Could not read migrated user");
+            let (_, records) = user.unwrap();
+            assert_eq!(records.records().len(), 3);
+
+            // Cleanup
+            fs::remove_file(&file_path).unwrap();
+        }
+
+        #[test]
+        fn test_migration_user_not_found() {
+            ensure_initialized();
+            let username = "nonexistent_user_12345";
+            let master_password = "test";
+
+            let result = migrate_user(username, master_password);
+            assert!(result.is_err());
+            assert_eq!(result.err().unwrap(), "User not found");
+        }
+
+        #[test]
+        fn test_migration_wrong_password() {
+            ensure_initialized();
+            let username = generate_random_username();
+            let master_password = "correct_password";
+            let wrong_password = "wrong_password";
+
+            // Create file path
+            let db_path = get_db_path();
+            let hash = hash(username.clone());
+            let file_path = db_path.join(hash.as_str());
+
+            // Create legacy AES-128 encrypted file
+            let legacy_data = create_legacy_record("example.com", "secret", master_password);
+            fs::write(&file_path, &legacy_data).unwrap();
+
+            // Try to migrate with wrong password
+            let result = migrate_user(&username, wrong_password);
+            assert!(result.is_err());
+            assert!(result.err().unwrap().contains("Decryption failed"));
+
+            // Cleanup
+            fs::remove_file(&file_path).unwrap();
+        }
+
+        #[test]
+        fn test_auto_migration_on_login() {
+            ensure_initialized();
+            let username = generate_random_username();
+            let master_password = "test_master_password";
+            let domain = "github.com";
+            let password = "my_secret_password";
+
+            // Create file path
+            let db_path = get_db_path();
+            let hash = hash(username.clone());
+            let file_path = db_path.join(hash.as_str());
+
+            // Create legacy AES-128 encrypted file
+            let legacy_data = create_legacy_record(domain, password, master_password);
+            fs::write(&file_path, &legacy_data).unwrap();
+
+            // Login with User::from() - should auto-migrate
+            let result = User::from(&username, master_password);
+            assert!(result.is_ok(), "Auto-migration login failed: {:?}", result.err());
+
+            let (user, records) = result.unwrap();
+            assert_eq!(records.records().len(), 1);
+
+            let recs = records.records();
+            let (d, p) = recs.first().unwrap();
+            assert_eq!(d, domain);
+            assert_eq!(p, password);
+
+            // Verify user path is correct
+            assert_eq!(user.path(), file_path);
+
+            // Cleanup
+            fs::remove_file(&file_path).unwrap();
+        }
+
+        #[test]
+        fn test_auto_migration_multiple_records() {
+            ensure_initialized();
+            let username = generate_random_username();
+            let master_password = "test_master_password";
+
+            // Create file path
+            let db_path = get_db_path();
+            let hash = hash(username.clone());
+            let file_path = db_path.join(hash.as_str());
+
+            // Create multiple legacy AES-128 encrypted records
+            let mut legacy_data = vec![];
+            legacy_data.extend(create_legacy_record("example1.com", "pass1", master_password));
+            legacy_data.extend(create_legacy_record("example2.com", "pass2", master_password));
+            fs::write(&file_path, &legacy_data).unwrap();
+
+            // Login with User::from() - should auto-migrate
+            let result = User::from(&username, master_password);
+            assert!(result.is_ok(), "Auto-migration login failed: {:?}", result.err());
+
+            let (_, records) = result.unwrap();
+            assert_eq!(records.records().len(), 2);
+
+            // Login again - should work with AES-256 now (no migration needed)
+            let result2 = User::from(&username, master_password);
+            assert!(result2.is_ok(), "Second login failed after migration");
+
+            // Cleanup
+            fs::remove_file(&file_path).unwrap();
+        }
+
+        #[test]
+        fn test_auto_migration_wrong_password() {
+            ensure_initialized();
+            let username = generate_random_username();
+            let master_password = "correct_password";
+            let wrong_password = "wrong_password";
+
+            // Create file path
+            let db_path = get_db_path();
+            let hash = hash(username.clone());
+            let file_path = db_path.join(hash.as_str());
+
+            // Create legacy AES-128 encrypted file
+            let legacy_data = create_legacy_record("example.com", "secret", master_password);
+            fs::write(&file_path, &legacy_data).unwrap();
+
+            // Try login with wrong password - should fail
+            let result = User::from(&username, wrong_password);
+            assert!(result.is_err());
+
+            // Cleanup
+            fs::remove_file(&file_path).unwrap();
+        }
     }
 }
